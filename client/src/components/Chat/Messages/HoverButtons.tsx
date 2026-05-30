@@ -1,11 +1,11 @@
 import React, { useState, useMemo, memo } from 'react';
 import { useRecoilState } from 'recoil';
-import type { TConversation, TMessage, TFeedback } from 'librechat-data-provider';
+import type { TConversation, TMessage } from 'librechat-data-provider';
 import { EditIcon, Clipboard, CheckMark, ContinueIcon, RegenerateIcon } from '@librechat/client';
 import { useGenerationsByLatest, useLocalize } from '~/hooks';
 import { Fork } from '~/components/Conversations';
 import MessageAudio from './MessageAudio';
-import Feedback from './Feedback';
+
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -21,7 +21,7 @@ type THoverButtons = {
   latestMessageId?: string;
   isLast: boolean;
   index: number;
-  handleFeedback?: ({ feedback }: { feedback: TFeedback | undefined }) => void;
+
 };
 
 type HoverButtonProps = {
@@ -121,7 +121,6 @@ const HoverButtons = ({
   handleContinue,
   latestMessageId,
   isLast,
-  handleFeedback,
 }: THoverButtons) => {
   const localize = useLocalize();
   const [isCopied, setIsCopied] = useState(false);
@@ -205,20 +204,6 @@ const HoverButtons = ({
         />
       )}
 
-      {/* Copy Button */}
-      <HoverButton
-        onClick={handleCopy}
-        title={
-          isCopied ? localize('com_ui_copied_to_clipboard') : localize('com_ui_copy_to_clipboard')
-        }
-        icon={isCopied ? <CheckMark className="h-[18px] w-[18px]" /> : <Clipboard size="19" />}
-        isLast={isLast}
-        className={cn(
-          'ml-0 flex items-center gap-1.5 text-xs',
-          isSubmitting && isCreatedByUser ? 'md:opacity-0 md:group-hover:opacity-100' : '',
-        )}
-      />
-
       {/* Edit Button */}
       {isEditableEndpoint && (
         <HoverButton
@@ -234,6 +219,20 @@ const HoverButtons = ({
         />
       )}
 
+      {/* Copy Button */}
+      <HoverButton
+        onClick={handleCopy}
+        title={
+          isCopied ? localize('com_ui_copied_to_clipboard') : localize('com_ui_copy_to_clipboard')
+        }
+        icon={isCopied ? <CheckMark className="h-[18px] w-[18px]" /> : <Clipboard size="19" />}
+        isLast={isLast}
+        className={cn(
+          'ml-0 flex items-center gap-1.5 text-xs',
+          isSubmitting && isCreatedByUser ? 'md:opacity-0 md:group-hover:opacity-100' : '',
+        )}
+      />
+
       {/* Fork Button */}
       <Fork
         messageId={message.messageId}
@@ -242,11 +241,6 @@ const HoverButtons = ({
         latestMessageId={latestMessageId}
         isLast={isLast}
       />
-
-      {/* Feedback Buttons */}
-      {!isCreatedByUser && handleFeedback != null && (
-        <Feedback handleFeedback={handleFeedback} feedback={message.feedback} isLast={isLast} />
-      )}
 
       {/* Regenerate Button */}
       {regenerateEnabled && (
