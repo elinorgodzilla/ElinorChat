@@ -105,8 +105,16 @@ function parseSonnetVersion(model: string): { major: number; minor: number } | n
   return null;
 }
 
-/** Checks if a model supports adaptive thinking (Opus 4.6+, Sonnet 4.6+) */
+/** Checks if a model always uses adaptive thinking and cannot have thinking disabled (Fable 5, Mythos 5, Mythos Preview) */
+export function isAlwaysAdaptiveModel(model: string): boolean {
+  return /claude-(?:fable|mythos)/.test(model);
+}
+
+/** Checks if a model supports adaptive thinking (Opus 4.6+, Sonnet 4.6+, Fable, Mythos) */
 export function supportsAdaptiveThinking(model: string): boolean {
+  if (isAlwaysAdaptiveModel(model)) {
+    return true;
+  }
   const opus = parseOpusVersion(model);
   if (opus && (opus.major > 4 || (opus.major === 4 && opus.minor >= 6))) {
     return true;
@@ -129,6 +137,14 @@ export function supportsAdaptiveThinking(model: string): boolean {
  * See https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-7#thinking-content-omitted-by-default
  */
 export function omitsThinkingByDefault(model: string): boolean {
+  if (isAlwaysAdaptiveModel(model)) {
+    // Mythos Preview does NOT omit by default (it summarizes from first token), but
+    // Fable 5 and Mythos 5 do. Since Mythos Preview is claude-mythos-preview and Mythos 5 is claude-mythos-5:
+    if (model.includes('claude-mythos-preview')) {
+      return false;
+    }
+    return true;
+  }
   const opus = parseOpusVersion(model);
   if (opus && (opus.major > 4 || (opus.major === 4 && opus.minor >= 7))) {
     return true;

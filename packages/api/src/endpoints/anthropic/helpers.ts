@@ -7,6 +7,7 @@ import {
   anthropicSettings,
   resolveThinkingDisplay,
   supportsAdaptiveThinking,
+  isAlwaysAdaptiveModel,
 } from 'librechat-data-provider';
 import { matchModelName } from '~/utils/tokens';
 
@@ -96,8 +97,9 @@ function configureReasoning(
   const updatedOptions = { ...anthropicInput };
   const currentMaxTokens = updatedOptions.max_tokens ?? updatedOptions.maxTokens;
   const modelName = updatedOptions.model ?? '';
+  const isAlwaysAdaptive = isAlwaysAdaptiveModel(modelName);
 
-  if (extendedOptions.thinking && modelName && supportsAdaptiveThinking(modelName)) {
+  if ((extendedOptions.thinking || isAlwaysAdaptive) && modelName && supportsAdaptiveThinking(modelName)) {
     /**
      * For Opus 4.7+, Anthropic omits thinking content from responses by
      * default. Resolver returns `'summarized'` for those models (so the
@@ -185,4 +187,5 @@ export {
   getClaudeHeaders,
   configureReasoning,
   supportsAdaptiveThinking,
+  isAlwaysAdaptiveModel,
 };

@@ -186,7 +186,7 @@ const SetKeyDialog = ({
   });
 
   const [userKey, setUserKey] = useState('');
-  const [expiresAtLabel, setExpiresAtLabel] = useState(EXPIRY.TWELVE_HOURS.label);
+  const [expiresAtLabel, setExpiresAtLabel] = useState(EXPIRY.NEVER.label);
   const { getExpiry, saveUserKey } = useUserKey(endpoint);
   const { showToast } = useToastContext();
   const localize = useLocalize();
