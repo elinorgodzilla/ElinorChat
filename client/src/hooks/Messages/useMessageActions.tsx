@@ -1,15 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
-import { useUpdateFeedbackMutation } from 'librechat-data-provider/react-query';
-import {
-  TFeedback,
-  getTagByKey,
-  isAgentsEndpoint,
-  SearchResultData,
-  toMinimalFeedback,
-  isAssistantsEndpoint,
-  TUpdateFeedbackRequest,
-} from 'librechat-data-provider';
+import { isAgentsEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
+import type { SearchResultData } from 'librechat-data-provider';
 import type { TMessageProps } from '~/common';
 import type { TMessageChatContext } from '~/common/types';
 import { useAssistantsMapContext, useAgentsMapContext } from '~/Providers';
@@ -59,18 +51,6 @@ export default function useMessageActions(props: TMessageActions) {
 
   const { text, content, messageId = null, isCreatedByUser } = message ?? {};
   const edit = useMemo(() => messageId === currentEditId, [messageId, currentEditId]);
-
-  const [feedback, setFeedback] = useState<TFeedback | undefined>(() => {
-    if (message?.feedback) {
-      const tag = getTagByKey(message.feedback?.tag?.key);
-      return {
-        rating: message.feedback.rating,
-        tag,
-        text: message.feedback.text,
-      };
-    }
-    return undefined;
-  });
 
   const enterEdit = useCallback(
     (cancel?: boolean) => setCurrentEditId && setCurrentEditId(cancel === true ? -1 : messageId),
@@ -135,49 +115,15 @@ export default function useMessageActions(props: TMessageActions) {
     }
   }, [message, agent, assistant, UsernameDisplay, user, localize]);
 
-  const feedbackMutation = useUpdateFeedbackMutation(
-    conversation?.conversationId || '',
-    message?.messageId || '',
-  );
-
-  const handleFeedback = useCallback(
-    ({ feedback: newFeedback }: { feedback: TFeedback | undefined }) => {
-      const payload: TUpdateFeedbackRequest = {
-        feedback: newFeedback ? toMinimalFeedback(newFeedback) : undefined,
-      };
-
-      feedbackMutation.mutate(payload, {
-        onSuccess: (data) => {
-          if (!data.feedback) {
-            setFeedback(undefined);
-          } else {
-            const tag = getTagByKey(data.feedback?.tag ?? undefined);
-            setFeedback({
-              rating: data.feedback.rating,
-              tag,
-              text: data.feedback.text,
-            });
-          }
-        },
-        onError: (error) => {
-          console.error('Failed to update feedback:', error);
-        },
-      });
-    },
-    [feedbackMutation],
-  );
-
   return {
     ask,
     edit,
     index,
     agent,
-    feedback,
     assistant,
     enterEdit,
     conversation,
     messageLabel,
-    handleFeedback,
     handleContinue,
     copyToClipboard,
     latestMessageId,

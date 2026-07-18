@@ -41,7 +41,7 @@ describe('Create', () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it('submits the trimmed name with the default 30-day expiration', async () => {
+  it('submits the trimmed name with no expiration by default', async () => {
     const onCreated = jest.fn();
     const { getByRole, getByLabelText } = render(
       <Create onCreated={onCreated} onCancel={jest.fn()} />,
@@ -54,9 +54,7 @@ describe('Create', () => {
 
     const payload = mutateAsync.mock.calls[0][0];
     expect(payload.name).toBe('CI key');
-    const diffDays = (new Date(payload.expiresAt).getTime() - Date.now()) / 86400000;
-    expect(diffDays).toBeGreaterThan(29.9);
-    expect(diffDays).toBeLessThanOrEqual(30.1);
+    expect(payload.expiresAt).toBeNull();
   });
 
   it('calls onCancel from the cancel button', () => {

@@ -99,7 +99,6 @@ function areMessageRenderPropsEqual(prev: MessageRenderProps, next: MessageRende
     prevMsg.model === nextMsg.model &&
     prevMsg.endpoint === nextMsg.endpoint &&
     prevMsg.iconURL === nextMsg.iconURL &&
-    prevMsg.feedback?.rating === nextMsg.feedback?.rating &&
     areMessageFilesEqual(prevMsg.files, nextMsg.files) &&
     (prevMsg.quotes?.length ?? 0) === (nextMsg.quotes?.length ?? 0)
   );
@@ -125,7 +124,6 @@ const MessageRender = memo(function MessageRender({
     enterEdit,
     conversation,
     messageLabel,
-    handleFeedback,
     handleContinue,
     latestMessageId,
     copyToClipboard,
@@ -276,7 +274,6 @@ const MessageRender = memo(function MessageRender({
                 copyToClipboard={copyToClipboard}
                 handleContinue={handleContinue}
                 latestMessageId={latestMessageId}
-                handleFeedback={handleFeedback}
                 isLast={isLast}
               />
             </SubRow>

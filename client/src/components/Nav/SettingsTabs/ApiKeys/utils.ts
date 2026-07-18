@@ -3,7 +3,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TranslationKeys } from '~/hooks';
 
 export const EXPIRY_NEVER = 'never';
-export const DEFAULT_EXPIRY = '30';
+export const DEFAULT_EXPIRY = EXPIRY_NEVER;
 
 export const EXPIRY_OPTIONS: { value: string; labelKey: TranslationKeys }[] = [
   { value: '7', labelKey: 'com_ui_api_key_expire_7d' },

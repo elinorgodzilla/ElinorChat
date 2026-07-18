@@ -72,7 +72,7 @@ const PopoverButton: React.FC<PopoverButtonProps> = ({
                   clearTimeout(timeoutRef.current);
                 }
                 timeoutRef.current = setTimeout(() => {
-                  setActiveSetting(optionLabels[ForkOptions.DEFAULT]);
+                  setActiveSetting(optionLabels[ForkOptions.DIRECT_PATH]);
                 }, 175);
               }}
               onFocus={() => {
@@ -87,7 +87,7 @@ const PopoverButton: React.FC<PopoverButtonProps> = ({
                   clearTimeout(timeoutRef.current);
                 }
                 timeoutRef.current = setTimeout(() => {
-                  setActiveSetting(optionLabels[ForkOptions.DEFAULT]);
+                  setActiveSetting(optionLabels[ForkOptions.DIRECT_PATH]);
                 }, 175);
               }}
               className="mx-0.5 w-14 flex-1 rounded-xl border-2 border-border-medium bg-surface-secondary text-text-secondary transition duration-200 ease-in-out hover:bg-surface-hover hover:text-text-primary"
@@ -219,7 +219,7 @@ export default function Fork({
   const [isActive, setIsActive] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [forkSetting, setForkSetting] = useRecoilState(store.forkSetting);
-  const [activeSetting, setActiveSetting] = useState(optionLabels.default);
+  const [activeSetting, setActiveSetting] = useState(optionLabels[ForkOptions.DIRECT_PATH]);
   const [splitAtTarget, setSplitAtTarget] = useRecoilState(store.splitAtTarget);
   const [rememberGlobal, setRememberGlobal] = useRecoilState(store.rememberDefaultFork);
   const popoverStore = Ariakit.usePopoverStore({
@@ -294,7 +294,7 @@ export default function Fork({
       hoverTitle: (
         <>
           <GitCommit className="h-5 w-5 rotate-90" aria-hidden="true" />
-          {localize(optionLabels[ForkOptions.DIRECT_PATH])}
+          {`${localize(optionLabels[ForkOptions.DIRECT_PATH])} (${localize('com_endpoint_default')})`}
         </>
       ),
       hoverDescription: localize('com_ui_fork_info_visible'),
@@ -318,7 +318,7 @@ export default function Fork({
       hoverTitle: (
         <>
           <ListTree className="h-5 w-5" aria-hidden="true" />
-          {`${localize(optionLabels[ForkOptions.TARGET_LEVEL])} (${localize('com_endpoint_default')})`}
+          {localize(optionLabels[ForkOptions.TARGET_LEVEL])}
         </>
       ),
       hoverDescription: localize('com_ui_fork_info_target'),

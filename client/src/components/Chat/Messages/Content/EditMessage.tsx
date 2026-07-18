@@ -141,7 +141,7 @@ const EditMessage = ({
         e.preventDefault();
         submitButtonRef.current?.click();
       }
-      if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+      if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         saveButtonRef.current?.click();
       }
@@ -183,13 +183,13 @@ const EditMessage = ({
           dir={isRTL ? 'rtl' : 'ltr'}
         />
       </div>
-      <div className="mt-2 flex w-full justify-center text-center">
+      <div className="mt-2 flex w-full justify-start gap-2 text-left">
         <TooltipAnchor
           description="Ctrl + Enter / ⌘ + Enter"
           render={
             <button
               ref={submitButtonRef}
-              className="btn btn-primary relative mr-2"
+              className="btn btn-primary relative"
               disabled={isSubmitting}
               onClick={handleSubmit(resubmitMessage)}
             >
@@ -198,11 +198,11 @@ const EditMessage = ({
           }
         />
         <TooltipAnchor
-          description="Shift + Enter"
+          description="Ctrl + S / ⌘ + S"
           render={
             <button
               ref={saveButtonRef}
-              className="btn btn-secondary relative mr-2"
+              className="btn btn-secondary relative"
               disabled={isSubmitting}
               onClick={handleSubmit(updateMessage)}
             >

@@ -55,7 +55,7 @@ describe('formatDate', () => {
 });
 
 describe('DEFAULT_EXPIRY', () => {
-  it('is 30 days', () => {
-    expect(DEFAULT_EXPIRY).toBe('30');
+  it('never expires', () => {
+    expect(DEFAULT_EXPIRY).toBe(EXPIRY_NEVER);
   });
 });

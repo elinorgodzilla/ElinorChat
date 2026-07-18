@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useForm } from 'react-hook-form';
-import { TextareaAutosize } from '@librechat/client';
+import { TextareaAutosize, TooltipAnchor } from '@librechat/client';
 import { ContentTypes } from 'librechat-data-provider';
 import { Lightbulb, MessageSquare } from 'lucide-react';
 import { useUpdateMessageContentMutation } from 'librechat-data-provider/react-query';
@@ -40,6 +40,8 @@ const EditTextPart = ({
   const getAddedConvo = useGetAddedConvo();
 
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const saveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const submitButtonRef = useRef<HTMLButtonElement | null>(null);
   const updateMessageContentMutation = useUpdateMessageContentMutation(conversationId ?? '');
 
   const isRTL = chatDirection?.toLowerCase() === 'rtl';
@@ -133,6 +135,14 @@ const EditTextPart = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        submitButtonRef.current?.click();
+      }
+      if (e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        saveButtonRef.current?.click();
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         enterEdit(true);
@@ -187,24 +197,41 @@ const EditTextPart = ({
           dir={isRTL ? 'rtl' : 'ltr'}
         />
       </div>
-      <div className="mt-2 flex w-full justify-center text-center">
-        <button
-          className="btn btn-primary relative mr-2"
-          disabled={isSubmitting}
-          onClick={handleSubmit(resubmitMessage)}
-        >
-          {localize('com_ui_save_submit')}
-        </button>
-        <button
-          className="btn btn-secondary relative mr-2"
-          disabled={isSubmitting}
-          onClick={handleSubmit(updateMessage)}
-        >
-          {localize('com_ui_save')}
-        </button>
-        <button className="btn btn-neutral relative" onClick={() => enterEdit(true)}>
-          {localize('com_ui_cancel')}
-        </button>
+      <div className="mt-2 flex w-full justify-start gap-2 text-left">
+        <TooltipAnchor
+          description="Ctrl + Enter / ⌘ + Enter"
+          render={
+            <button
+              ref={submitButtonRef}
+              className="btn btn-primary relative"
+              disabled={isSubmitting}
+              onClick={handleSubmit(resubmitMessage)}
+            >
+              {localize('com_ui_save_submit')}
+            </button>
+          }
+        />
+        <TooltipAnchor
+          description="Ctrl + S / ⌘ + S"
+          render={
+            <button
+              ref={saveButtonRef}
+              className="btn btn-secondary relative"
+              disabled={isSubmitting}
+              onClick={handleSubmit(updateMessage)}
+            >
+              {localize('com_ui_save')}
+            </button>
+          }
+        />
+        <TooltipAnchor
+          description="Esc"
+          render={
+            <button className="btn btn-neutral relative" onClick={() => enterEdit(true)}>
+              {localize('com_ui_cancel')}
+            </button>
+          }
+        />
       </div>
     </Container>
   );

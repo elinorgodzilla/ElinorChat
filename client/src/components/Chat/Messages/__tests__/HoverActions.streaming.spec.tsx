@@ -67,7 +67,6 @@ jest.mock('~/hooks', () => {
       assistant: undefined,
       conversation: chatContext.conversation,
       messageLabel: message?.sender ?? 'Assistant',
-      handleFeedback: jest.fn(),
       handleContinue: chatContext.handleContinue,
       copyToClipboard: jest.fn(),
       latestMessageId: chatContext.latestMessageId,
