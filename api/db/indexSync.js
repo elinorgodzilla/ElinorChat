@@ -6,7 +6,8 @@ const { isEnabled, FlowStateManager } = require('@librechat/api');
 const { getLogStores } = require('~/cache');
 const { batchResetMeiliFlags } = require('./utils');
 
-const searchEnabled = isEnabled(process.env.SEARCH);
+const searchEnabled =
+  isEnabled(process.env.SEARCH) && !isEnabled(process.env.ATLAS_SEARCH);
 const indexingDisabled = isEnabled(process.env.MEILI_NO_SYNC);
 let currentTimeout = null;
 

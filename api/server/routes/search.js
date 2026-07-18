@@ -2,6 +2,7 @@ const express = require('express');
 const { MeiliSearch } = require('meilisearch');
 const { isEnabled } = require('@librechat/api');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
+const db = require('~/models');
 
 const router = express.Router();
 
@@ -13,6 +14,10 @@ router.get('/enable', async function (req, res) {
   }
 
   try {
+    if (isEnabled(process.env.ATLAS_SEARCH)) {
+      return res.send(await db.isAtlasSearchAvailable());
+    }
+
     const client = new MeiliSearch({
       host: process.env.MEILI_HOST,
       apiKey: process.env.MEILI_MASTER_KEY,

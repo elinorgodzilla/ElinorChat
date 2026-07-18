@@ -81,7 +81,8 @@ jest.mock('~/db/models', () => ({
 
 describe('message route conversation ownership filters', () => {
   let app;
-  const { getMessages, saveConvo, saveMessage } = require('~/models');
+  const { getMessages, saveConvo, saveMessage, getConvosQueried, searchMessages } =
+    require('~/models');
   const { prepareMessageRequestValidation } = require('~/server/middleware');
 
   const authenticatedUserId = 'user-owner-123';
@@ -242,6 +243,42 @@ describe('message route conversation ownership filters', () => {
     expect(getMessages).toHaveBeenCalledWith(
       { conversationId: 'convo-1', messageId: 'message-1', user: authenticatedUserId },
       '-_id -__v -user',
+    );
+  });
+
+  it('should scope search and discard messages missing authoritative user data', async () => {
+    searchMessages.mockResolvedValue({
+      hits: [
+        { messageId: 'message-1', conversationId: 'convo-1', text: 'visible' },
+        { messageId: 'stale-message', conversationId: 'convo-1', text: 'stale' },
+      ],
+    });
+    getConvosQueried.mockResolvedValue({
+      convoMap: { 'convo-1': { title: 'Conversation', model: 'model-1' } },
+    });
+    getMessages.mockResolvedValue([
+      {
+        messageId: 'message-1',
+        conversationId: 'convo-1',
+        isCreatedByUser: false,
+        endpoint: 'openAI',
+      },
+    ]);
+
+    const response = await request(app).get('/api/messages?search=visible&pageSize=10');
+
+    expect(response.status).toBe(200);
+    expect(searchMessages).toHaveBeenCalledWith('visible', {
+      user: authenticatedUserId,
+      limit: 10,
+    });
+    expect(getMessages).toHaveBeenCalledWith({
+      user: authenticatedUserId,
+      messageId: { $in: ['message-1', 'stale-message'] },
+    });
+    expect(response.body.messages).toHaveLength(1);
+    expect(response.body.messages[0]).toEqual(
+      expect.objectContaining({ messageId: 'message-1', title: 'Conversation' }),
     );
   });
 });

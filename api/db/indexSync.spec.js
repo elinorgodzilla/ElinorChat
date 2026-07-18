@@ -87,6 +87,7 @@ describe('performSync() - syncThreshold logic', () => {
     process.env.MEILI_MASTER_KEY = 'test-key';
     process.env.SEARCH = 'true';
     delete process.env.MEILI_NO_SYNC;
+    delete process.env.ATLAS_SEARCH;
 
     // Re-ensure models are available in mongoose after resetModules
     // We must require mongoose again to get the fresh instance that indexSync will use
@@ -526,5 +527,18 @@ describe('performSync() - syncThreshold logic', () => {
     expect(mockLogger.info).toHaveBeenCalledWith(
       '[indexSync] 6 convos unindexed (below threshold: 1000, skipping)',
     );
+  });
+
+  test('skips Meilisearch synchronization when Atlas Search is enabled', async () => {
+    process.env.ATLAS_SEARCH = 'true';
+    jest.resetModules();
+
+    const indexSync = require('./indexSync');
+    await indexSync();
+
+    expect(mockGetLogStores).not.toHaveBeenCalled();
+    expect(mockMeiliHealth).not.toHaveBeenCalled();
+    expect(Message.syncWithMeili).not.toHaveBeenCalled();
+    expect(Conversation.syncWithMeili).not.toHaveBeenCalled();
   });
 });

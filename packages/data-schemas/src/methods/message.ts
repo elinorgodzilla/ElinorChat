@@ -2,7 +2,12 @@ import { RetentionMode } from 'librechat-data-provider';
 import type { DeleteResult, FilterQuery, Model } from 'mongoose';
 import type { AppConfig, IMessage } from '~/types';
 import { createTempChatExpirationDate } from '~/utils/tempChatRetention';
-import { createFallbackRetentionDate } from '~/utils/retention';
+import { buildRetentionVisibilityFilter, createFallbackRetentionDate } from '~/utils/retention';
+import {
+  getAtlasSearchIndex,
+  getAtlasSearchScope,
+  isAtlasSearchEnabled,
+} from '~/utils/atlasSearch';
 import { tenantSafeBulkWrite } from '~/utils/tenantBulkWrite';
 import logger from '~/config/winston';
 
@@ -12,6 +17,15 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 interface MessageQueryOptions {
   limit?: number;
   sort?: Record<string, 1 | -1> | false;
+}
+
+interface MessageSearchOptions {
+  user: string;
+  limit?: number;
+}
+
+interface MessageSearchResult {
+  hits: IMessage[];
 }
 
 export interface MessageMethods {
@@ -59,9 +73,9 @@ export interface MessageMethods {
   ): Promise<{ messages: IMessage[]; nextCursor: string | null }>;
   searchMessages(
     query: string,
-    searchOptions: Partial<IMessage>,
-    hydrate?: boolean,
-  ): Promise<unknown>;
+    searchOptions: MessageSearchOptions,
+  ): Promise<MessageSearchResult>;
+  isAtlasSearchAvailable(): Promise<boolean>;
   deleteMessages(filter: FilterQuery<IMessage>): Promise<DeleteResult>;
 }
 
@@ -417,22 +431,88 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
     return { messages, nextCursor };
   }
 
-  /**
-   * Performs a MeiliSearch query on the Message collection.
-   * Requires the meilisearch plugin to be registered on the Message model.
-   */
-  async function searchMessages(
-    query: string,
-    searchOptions: Record<string, unknown>,
-    hydrate?: boolean,
-  ) {
+  /** Performs a search query using the configured search provider. */
+  async function searchMessages(query: string, searchOptions: MessageSearchOptions) {
     const Message = mongoose.models.Message as Model<IMessage> & {
-      meiliSearch?: (q: string, opts: Record<string, unknown>, h?: boolean) => Promise<unknown>;
+      meiliSearch?: (
+        q: string,
+        opts: Record<string, unknown>,
+        hydrate?: boolean,
+      ) => Promise<MessageSearchResult>;
     };
+
+    if (isAtlasSearchEnabled()) {
+      const scope = getAtlasSearchScope(searchOptions.user);
+      const limit = Math.min(Math.max(searchOptions.limit ?? 25, 1), 100);
+      const hits = await Message.collection
+        .aggregate<IMessage>([
+          {
+            $search: {
+              index: getAtlasSearchIndex(),
+              compound: {
+                must: [
+                  {
+                    text: {
+                      query,
+                      path: [
+                        'text',
+                        'sender',
+                        'content.text',
+                        'content.text.value',
+                        'content.think',
+                        'content.think.value',
+                        'content.steer',
+                        'content.content.text',
+                      ],
+                    },
+                  },
+                ],
+                filter: scope.filters,
+              },
+            },
+          },
+          {
+            $match: {
+              ...scope.match,
+              ...buildRetentionVisibilityFilter<IMessage>(),
+            },
+          },
+          { $limit: limit },
+        ])
+        .toArray();
+
+      return { hits };
+    }
+
     if (typeof Message.meiliSearch !== 'function') {
       throw new Error('MeiliSearch plugin not registered on Message model');
     }
-    return Message.meiliSearch(query, searchOptions, hydrate);
+    return Message.meiliSearch(
+      query,
+      { filter: `user = "${searchOptions.user}"`, limit: searchOptions.limit },
+      true,
+    );
+  }
+
+  async function isAtlasSearchAvailable(): Promise<boolean> {
+    const indexName = getAtlasSearchIndex();
+    const Message = mongoose.models.Message as Model<IMessage>;
+    const Conversation = mongoose.models.Conversation;
+    if (!Message || !Conversation) {
+      return false;
+    }
+
+    const [messageIndexes, conversationIndexes] = await Promise.all([
+      Message.collection.listSearchIndexes(indexName).toArray(),
+      Conversation.collection.listSearchIndexes(indexName).toArray(),
+    ]);
+    const isReady = (indexes: Array<{ name: string; status?: string; queryable?: boolean }>) =>
+      indexes.some(
+        (index) =>
+          index.name === indexName && (index.status === 'READY' || index.queryable === true),
+      );
+
+    return isReady(messageIndexes) && isReady(conversationIndexes);
   }
 
   return {
@@ -446,6 +526,7 @@ export function createMessageMethods(mongoose: typeof import('mongoose')): Messa
     getMessage,
     getMessagesByCursor,
     searchMessages,
+    isAtlasSearchAvailable,
     deleteMessages,
   };
 }

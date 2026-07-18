@@ -8,6 +8,11 @@ import {
   updateChatProjectLastConversationForUser,
 } from './chatProject';
 import { buildRetentionVisibilityFilter, createFallbackRetentionDate } from '~/utils/retention';
+import {
+  getAtlasSearchIndex,
+  getAtlasSearchScope,
+  isAtlasSearchEnabled,
+} from '~/utils/atlasSearch';
 import { createTempChatExpirationDate } from '~/utils/tempChatRetention';
 import { tenantSafeBulkWrite } from '~/utils/tenantBulkWrite';
 import { isValidObjectIdString } from '~/utils/objectId';
@@ -570,26 +575,53 @@ export function createConversationMethods(
 
     if (search) {
       try {
-        const meiliResults = await (
-          Conversation as unknown as {
-            meiliSearch: (
-              query: string,
-              options: Record<string, string>,
-            ) => Promise<{
-              hits: Array<{ conversationId: string }>;
-            }>;
-          }
-        ).meiliSearch(search, { filter: `user = "${user}"` });
-        const matchingIds = Array.isArray(meiliResults.hits)
-          ? meiliResults.hits.map((result) => result.conversationId)
-          : [];
+        let matchingIds: string[];
+        if (isAtlasSearchEnabled()) {
+          const scope = getAtlasSearchScope(user);
+          const atlasResults = await Conversation.collection
+            .aggregate<{ conversationId: string }>([
+              {
+                $search: {
+                  index: getAtlasSearchIndex(),
+                  compound: {
+                    must: [{ text: { query: search, path: ['title', 'tags'] } }],
+                    filter: scope.filters,
+                  },
+                },
+              },
+              {
+                $match: {
+                  ...scope.match,
+                  ...getVisibleConversationRetentionFilter(),
+                },
+              },
+              { $limit: 250 },
+              { $project: { _id: 0, conversationId: 1 } },
+            ])
+            .toArray();
+          matchingIds = atlasResults.map((result) => result.conversationId);
+        } else {
+          const meiliResults = await (
+            Conversation as unknown as {
+              meiliSearch: (
+                query: string,
+                options: Record<string, string>,
+              ) => Promise<{
+                hits: Array<{ conversationId: string }>;
+              }>;
+            }
+          ).meiliSearch(search, { filter: `user = "${user}"` });
+          matchingIds = Array.isArray(meiliResults.hits)
+            ? meiliResults.hits.map((result) => result.conversationId)
+            : [];
+        }
         if (!matchingIds.length) {
           return { conversations: [], nextCursor: null };
         }
         filters.push({ conversationId: { $in: matchingIds } } as FilterQuery<IConversation>);
       } catch (error) {
-        logger.error('[getConvosByCursor] Error during meiliSearch', error);
-        throw new Error('Error during meiliSearch');
+        logger.error('[getConvosByCursor] Error during search', error);
+        throw new Error('Error during search');
       }
     }
 

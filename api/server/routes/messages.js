@@ -34,7 +34,8 @@ router.get('/', async (req, res) => {
       messageId,
       search,
     } = req.query;
-    const pageSize = parseInt(pageSizeRaw, 10) || 25;
+    const parsedPageSize = parseInt(pageSizeRaw, 10) || 25;
+    const pageSize = Math.min(Math.max(parsedPageSize, 1), 100);
 
     let response;
     const sortField = ['endpoint', 'createdAt', 'updatedAt'].includes(sortBy)
@@ -51,7 +52,7 @@ router.get('/', async (req, res) => {
         { sortField, sortOrder, limit: pageSize, cursor },
       );
     } else if (search) {
-      const searchResults = await db.searchMessages(search, { filter: `user = "${user}"` }, true);
+      const searchResults = await db.searchMessages(search, { user, limit: pageSize });
 
       const messages = searchResults.hits || [];
 
@@ -82,14 +83,18 @@ router.get('/', async (req, res) => {
         const convo = result.convoMap[message.conversationId];
         const dbMessage = dbMessageMap[message.messageId];
 
+        if (!dbMessage) {
+          continue;
+        }
+
         activeMessages.push({
           ...message,
           title: convo.title,
           conversationId: message.conversationId,
           model: convo.model,
-          isCreatedByUser: dbMessage?.isCreatedByUser,
-          endpoint: dbMessage?.endpoint,
-          iconURL: dbMessage?.iconURL,
+          isCreatedByUser: dbMessage.isCreatedByUser,
+          endpoint: dbMessage.endpoint,
+          iconURL: dbMessage.iconURL,
         });
       }
 
