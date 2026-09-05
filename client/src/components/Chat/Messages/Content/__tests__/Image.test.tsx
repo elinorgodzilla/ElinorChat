@@ -37,6 +37,87 @@ describe('Image', () => {
     jest.clearAllMocks();
   });
 
+  describe('native image loading', () => {
+    it.each([{}, { width: 1024, height: 1792 }])(
+      'keeps the source mounted with lazy loading and async decoding: %j',
+      (dimensions) => {
+        render(<Image {...defaultProps} {...dimensions} />);
+        const img = screen.getByRole('img');
+
+        expect(img).toHaveAttribute('src', defaultProps.imagePath);
+        expect(img).toHaveAttribute('loading', 'lazy');
+        expect(img).toHaveAttribute('decoding', 'async');
+        expect(img).not.toHaveClass('hidden');
+        expect(img).toBeVisible();
+      },
+    );
+
+    it.each([
+      [1024, 1792, 'min(45vh, 175vw, 896px)'],
+      [1792, 896, 'min(45vh, 50vw, 256px)'],
+      [512, 512, 'min(45vh, 100vw, 512px)'],
+    ])('preserves reserved space before and after loading %i x %i', (width, height, expected) => {
+      const { rerender } = render(<Image {...defaultProps} width={width} height={height} />);
+      const button = screen.getByRole('button');
+      const img = screen.getByRole('img');
+
+      expect(button).toHaveStyle({ height: expected });
+      expect(button).toHaveClass('w-full', 'max-w-lg');
+      expect(img).toHaveClass('relative', 'block', 'size-full', 'object-contain');
+      expect(screen.getByTestId('skeleton')).toHaveAttribute('aria-hidden', 'true');
+
+      fireEvent.load(img);
+      rerender(<Image {...defaultProps} width={width} height={height} />);
+
+      expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+      expect(button).toHaveStyle({ height: expected });
+      expect(screen.getByRole('img')).toBe(img);
+    });
+
+    it('uses cached dimensions on remount without collapsing the reserved space', () => {
+      const { unmount } = render(<Image {...defaultProps} width={1024} height={1792} />);
+      fireEvent.load(screen.getByRole('img'));
+      unmount();
+
+      render(<Image {...defaultProps} />);
+
+      expect(screen.getByRole('button')).toHaveStyle({ height: 'min(45vh, 175vw, 896px)' });
+      expect(screen.getByRole('img')).toHaveClass('size-full', 'object-contain');
+      expect(screen.getByRole('img')).toHaveAttribute('loading', 'lazy');
+      expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+    });
+
+    it('preserves reserved space and preview access after an image error', () => {
+      const { rerender } = render(<Image {...defaultProps} width={512} height={512} />);
+      fireEvent.error(screen.getByRole('img'));
+      rerender(<Image {...defaultProps} width={512} height={512} />);
+
+      expect(screen.getByRole('button')).toHaveStyle({ height: 'min(45vh, 100vw, 512px)' });
+      expect(screen.getByRole('img')).toHaveAttribute('src', defaultProps.imagePath);
+      expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByTestId('dialog-image')).toHaveAttribute(
+        'data-src',
+        defaultProps.imagePath,
+      );
+    });
+
+    it('opens the preview while a dimensioned lazy image is still loading', () => {
+      render(<Image {...defaultProps} width={512} height={512} />);
+      expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button'));
+
+      expect(screen.getByTestId('dialog-image')).toHaveAttribute(
+        'data-src',
+        defaultProps.imagePath,
+      );
+      expect(screen.getByRole('img')).toHaveAttribute('loading', 'lazy');
+    });
+  });
+
   describe('rendering without dimensions', () => {
     it('renders with max-h-[45vh] height constraint', () => {
       render(<Image {...defaultProps} />);

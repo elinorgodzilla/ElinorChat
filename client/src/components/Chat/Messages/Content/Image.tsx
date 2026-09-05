@@ -123,6 +123,8 @@ const Image = ({
         <img
           alt={altText}
           src={absoluteImageUrl}
+          loading="lazy"
+          decoding="async"
           onLoad={() => paintedUrls.add(absoluteImageUrl)}
           className={cn(
             'relative block text-transparent',

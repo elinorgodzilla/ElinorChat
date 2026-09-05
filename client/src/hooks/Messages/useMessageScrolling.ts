@@ -64,18 +64,7 @@ export default function useMessageScrolling(messagesTree?: TMessage[] | null) {
 
   const debouncedHandleScroll = useCallback(() => {
     isNearBottomRef.current = getIsNearBottom();
-    if (messagesEndRef.current && scrollableRef.current) {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          isNearBottomRef.current = entry.isIntersecting;
-          debouncedSetShowScrollButton(!entry.isIntersecting);
-        },
-        { root: scrollableRef.current, threshold },
-      );
-      observer.observe(messagesEndRef.current);
-      return () => observer.disconnect();
-    }
-  }, [debouncedSetShowScrollButton, getIsNearBottom]);
+  }, [getIsNearBottom]);
 
   const scrollCallback = () => {
     reconcileMessageContentLayout(scrollableRef.current);

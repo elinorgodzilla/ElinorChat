@@ -229,6 +229,16 @@ export const img: React.ElementType = memo(function MarkdownImage({
     return `${baseURL}${src}`;
   }, [src, baseURL]);
 
-  return <img src={fixedSrc} alt={alt} title={title} className={className} style={style} />;
+  return (
+    <img
+      src={fixedSrc}
+      alt={alt}
+      title={title}
+      className={className}
+      style={style}
+      loading="lazy"
+      decoding="async"
+    />
+  );
 });
 img.displayName = 'MarkdownImage';
