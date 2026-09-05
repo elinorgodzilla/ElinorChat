@@ -11,7 +11,7 @@ module.exports = {
   darkMode: ['class'],
   theme: {
     fontFamily: {
-      sans: ['Readex Pro', 'Inter', 'sans-serif'],
+      sans: ['var(--app-font-family)'],
       mono: ['Roboto Mono', 'monospace'],
     },
     // fontFamily: {

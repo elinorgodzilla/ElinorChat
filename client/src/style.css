@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    font-weight: 300;
+    font-weight: var(--app-font-weight, 300);
   }
 }
 
@@ -14,6 +14,8 @@
 
 /* Custom Variables */
 :root {
+  --app-font-family: 'Readex Pro', 'Inter', sans-serif;
+  --app-font-weight: 300;
   --white: #fff;
   --black: #000;
   --gray-20: #ececf1;
@@ -71,6 +73,38 @@
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
   --markdown-font-size: 1rem;
+}
+
+:root[data-font-family='inter'] {
+  --app-font-family: 'Inter', sans-serif;
+}
+
+:root[data-font-family='source-sans-3'] {
+  --app-font-family: 'Source Sans 3', 'Inter', sans-serif;
+}
+
+:root[data-font-family='system'] {
+  --app-font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+:root[data-font-family='jost'] {
+  --app-font-family: 'Jost', 'Inter', sans-serif;
+}
+
+:root[data-font-family='readex-pro'] {
+  --app-font-family: 'Readex Pro', 'Inter', sans-serif;
+}
+
+:root[data-font-weight='300'] {
+  --app-font-weight: 300;
+}
+
+:root[data-font-weight='400'] {
+  --app-font-weight: 400;
+}
+
+:root[data-font-weight='500'] {
+  --app-font-weight: 500;
 }
 
 /* transitions-dev tokens — semantic names shared by every t-* class below. */
@@ -413,54 +447,48 @@ html {
   font-display: swap;
   font-family: Inter;
   font-style: normal;
-  font-weight: 400;
-  src: url('$fonts/Inter-Regular.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 100 900;
+  src: url('$fonts/Inter-Variable.ttf') format('truetype');
 }
 
 @font-face {
   font-display: swap;
   font-family: Inter;
   font-style: italic;
-  font-weight: 400;
-  src: url('$fonts/Inter-Italic.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 100 900;
+  src: url('$fonts/Inter-VariableItalic.ttf') format('truetype');
 }
 
 @font-face {
   font-display: swap;
-  font-family: Inter;
+  font-family: 'Source Sans 3';
   font-style: normal;
-  font-weight: 500;
-  src: url('$fonts/Inter-SemiBold.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 200 900;
+  src: url('$fonts/SourceSans3-Variable.ttf') format('truetype');
 }
 
 @font-face {
   font-display: swap;
-  font-family: Inter;
+  font-family: 'Source Sans 3';
   font-style: italic;
-  font-weight: 500;
-  src: url('$fonts/Inter-SemiBoldItalic.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 200 900;
+  src: url('$fonts/SourceSans3-VariableItalic.ttf') format('truetype');
 }
 
 @font-face {
   font-display: swap;
-  font-family: Inter;
+  font-family: Jost;
   font-style: normal;
-  font-weight: 600;
-  src: url('$fonts/Inter-Bold.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 100 900;
+  src: url('$fonts/Jost-Variable.ttf') format('truetype');
 }
 
 @font-face {
   font-display: swap;
-  font-family: Inter;
+  font-family: Jost;
   font-style: italic;
-  font-weight: 600;
-  src: url('$fonts/Inter-BoldItalic.woff2') format('woff2');
-  size-adjust: 94%;
+  font-weight: 100 900;
+  src: url('$fonts/Jost-VariableItalic.ttf') format('truetype');
 }
 
 @font-face {

@@ -15,6 +15,7 @@ import {
   AutoSendTextSelector,
   DecibelSelector,
 } from '../SettingsTabs/Speech/STT';
+import { FontFamilySetting, FontWeightSetting } from '../SettingsTabs/General/Typography';
 import DisplayUsernameMessages from '../SettingsTabs/Account/DisplayUsernameMessages';
 import ConversationModeSwitch from '../SettingsTabs/Speech/ConversationModeSwitch';
 import EnableTwoFactorItem from '../SettingsTabs/Account/TwoFactorAuthentication';
@@ -69,6 +70,43 @@ export const registry: SettingEntry[] = [
     labelKey: 'com_nav_font_size',
     keywords: ['text', 'zoom'],
     Component: FontSizeSelector,
+  },
+  {
+    id: 'fontFamily',
+    tab: GENERAL,
+    section: 'appearance',
+    labelKey: 'com_ui_font_family',
+    keywords: [
+      'typography',
+      'typeface',
+      'text',
+      'inter',
+      'source sans 3',
+      'system',
+      'segoe ui',
+      'jost',
+      'readex pro',
+    ],
+    Component: FontFamilySetting,
+  },
+  {
+    id: 'fontWeight',
+    tab: GENERAL,
+    section: 'appearance',
+    labelKey: 'com_ui_font_weight',
+    keywords: [
+      'typography',
+      'text',
+      'light',
+      'regular',
+      'medium',
+      '300',
+      '400',
+      '500',
+      'thickness',
+      'bold',
+    ],
+    Component: FontWeightSetting,
   },
   {
     id: 'chatDirection',

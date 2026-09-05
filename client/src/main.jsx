@@ -1,5 +1,6 @@
 import './polyfills/regeneratorRuntime';
 import { createRoot } from 'react-dom/client';
+import { initializeTypography } from './store/typography';
 import { initializeI18n } from './locales/i18n';
 import App from './App';
 import '@librechat/client/style.css';
@@ -14,6 +15,8 @@ window.addEventListener('vite:preloadError', (event) => {
     event.preventDefault();
   }
 });
+
+initializeTypography();
 
 const container = document.getElementById('root');
 const root = createRoot(container);
