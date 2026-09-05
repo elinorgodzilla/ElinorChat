@@ -239,8 +239,8 @@ html {
 .dark {
   --brand-purple: #ab68ff;
   --presentation: var(--gray-800);
-  --message-user-background: var(--gray-800);
-  --message-assistant-background: var(--gray-700);
+  --message-user-background: var(--gray-700);
+  --message-assistant-background: var(--gray-800);
   --text-primary: var(--gray-100);
   --text-secondary: var(--gray-300);
   --text-secondary-alt: var(--gray-400);
@@ -301,7 +301,7 @@ html {
 }
 
 .dark .chat-messages-viewport {
-  background-color: var(--message-user-background);
+  background-color: var(--gray-800);
 }
 
 .dark .chat-message-row[data-message-role='user'] {
