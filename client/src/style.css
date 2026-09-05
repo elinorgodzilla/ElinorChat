@@ -198,7 +198,9 @@ html {
 }
 .dark {
   --brand-purple: #ab68ff;
-  --presentation: var(--gray-800);
+  --presentation: #343541;
+  --message-user-background: #343541;
+  --message-assistant-background: #444654;
   --text-primary: var(--gray-100);
   --text-secondary: var(--gray-300);
   --text-secondary-alt: var(--gray-400);
@@ -212,19 +214,19 @@ html {
   --surface-active-alt: var(--gray-700);
   --surface-hover: var(--gray-600);
   --surface-hover-alt: var(--gray-600);
-  --surface-primary: var(--gray-900);
-  --surface-primary-alt: var(--gray-850);
-  --surface-primary-contrast: var(--gray-850);
-  --surface-secondary: var(--gray-800);
-  --surface-secondary-alt: var(--gray-800);
-  --surface-tertiary: var(--gray-700);
-  --surface-tertiary-alt: var(--gray-700);
-  --surface-dialog: var(--gray-850);
+  --surface-primary: #343541;
+  --surface-primary-alt: #2b2c36;
+  --surface-primary-contrast: #2b2c36;
+  --surface-secondary: #343541;
+  --surface-secondary-alt: #343541;
+  --surface-tertiary: #444654;
+  --surface-tertiary-alt: #444654;
+  --surface-dialog: #2b2c36;
   --surface-submit: var(--green-700);
   --surface-submit-hover: var(--green-800);
   --surface-destructive: var(--red-800);
   --surface-destructive-hover: var(--red-900);
-  --surface-chat: var(--gray-700);
+  --surface-chat: #444654;
   --border-light: var(--gray-700);
   --border-medium-alt: var(--gray-600);
   --border-medium: var(--gray-600);
@@ -233,17 +235,17 @@ html {
   --border-destructive: var(--red-500);
   /* These are test styles */
 
-  --background: 0 0% 7%;
+  --background: 235.38 11.11% 22.94%;
   --foreground: 0 0% 98%;
-  --card: 0 0% 3.9%;
+  --card: 235.38 11.11% 22.94%;
   --card-foreground: 0 0% 98%;
   --primary: 0 0% 98%;
   --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 14.9%;
+  --secondary: 235.38 11.11% 22.94%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 14.9%;
+  --muted: 232.5 10.53% 29.8%;
   --muted-foreground: 0 0% 63.9%;
-  --accent: 0 0% 14.9%;
+  --accent: 232.5 10.53% 29.8%;
   --accent-foreground: 0 0% 98%;
   --destructive: 0 62.8% 40.6%;
   --destructive-foreground: 0 0% 98%;
@@ -257,6 +259,19 @@ html {
   --chart-5: 340 75% 55%;
   --switch-unchecked: 0 0% 40%;
 }
+
+.dark .chat-messages-viewport {
+  background-color: var(--message-user-background);
+}
+
+.dark .chat-message-row[data-message-role='user'] {
+  background-color: var(--message-user-background);
+}
+
+.dark .chat-message-row[data-message-role='assistant'] {
+  background-color: var(--message-assistant-background);
+}
+
 .gizmo {
   --text-primary: var(--gizmo-gray-950);
   --text-secondary: var(--gizmo-gray-600);
@@ -273,9 +288,9 @@ html {
   --text-primary: var(--gray-100);
   --text-secondary: var(--gray-300);
   --text-tertiary: var(--gizmo-gray-500);
-  --surface-primary: var(--gray-900);
-  --surface-secondary: var(--gray-800);
-  --surface-tertiary: var(--gray-700);
+  --surface-primary: #343541;
+  --surface-secondary: #343541;
+  --surface-tertiary: #444654;
   --border-light: rgba(217, 217, 227, 0.1);
   --border-medium: rgba(217, 217, 227, 0.15);
   --border-heavy: rgba(217, 217, 227, 0.2);
@@ -1612,7 +1627,7 @@ html {
 .dark body,
 .dark html {
   --tw-bg-opacity: 1;
-  background-color: rgba(23, 23, 23, var(--tw-bg-opacity));
+  background-color: var(--surface-primary);
 }
 
 #__next,
@@ -1877,7 +1892,7 @@ html {
 .dark body,
 .dark html {
   --tw-bg-opacity: 1;
-  background-color: rgba(33, 33, 33, var(--tw-bg-opacity));
+  background-color: var(--surface-primary);
 }
 #__next,
 #root {

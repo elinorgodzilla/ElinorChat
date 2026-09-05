@@ -7,14 +7,17 @@ import ContentRender from './ContentRender';
 
 const MessageContainer = React.memo(function MessageContainer({
   handleScroll,
+  isCreatedByUser,
   children,
 }: {
   handleScroll: (event?: unknown) => void;
+  isCreatedByUser: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div
-      className="text-token-text-primary w-full border-0 bg-transparent dark:border-0 dark:bg-transparent"
+      className="chat-message-row text-token-text-primary w-full border-0 bg-transparent dark:border-0"
+      data-message-role={isCreatedByUser ? 'user' : 'assistant'}
       onWheel={handleScroll}
       onTouchMove={handleScroll}
     >
@@ -38,7 +41,7 @@ export default function MessageContent(props: TMessageProps) {
 
   return (
     <>
-      <MessageContainer handleScroll={handleScroll}>
+      <MessageContainer handleScroll={handleScroll} isCreatedByUser={!!message.isCreatedByUser}>
         <div className="m-auto justify-center p-4 py-2 md:gap-6">
           <ContentRender
             {...props}

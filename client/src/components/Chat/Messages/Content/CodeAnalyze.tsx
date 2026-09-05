@@ -68,7 +68,7 @@ export default function CodeAnalyze({
         />
       </div>
       {showCode && (
-        <div className="code-analyze-block mb-3 mt-0.5 overflow-hidden rounded-xl bg-black">
+        <div className="code-analyze-block mb-3 mt-0.5 overflow-hidden rounded-xl bg-surface-primary-alt">
           <MarkdownLite content={code ? `\`\`\`python\n${code}\n\`\`\`` : ''} />
           {logs && (
             <div className="bg-gray-700 p-4 text-xs">

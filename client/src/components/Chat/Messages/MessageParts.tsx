@@ -100,7 +100,8 @@ export default function Message(props: TMessageProps) {
   return (
     <>
       <div
-        className="w-full border-0 bg-transparent dark:border-0 dark:bg-transparent"
+        className="chat-message-row w-full border-0 bg-transparent dark:border-0"
+        data-message-role={isCreatedByUser ? 'user' : 'assistant'}
         onWheel={handleScroll}
         onTouchMove={handleScroll}
       >

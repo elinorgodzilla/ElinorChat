@@ -96,7 +96,7 @@ export default function BashCall({
         <div className="overflow-hidden" ref={expandRef}>
           <div className="my-2 overflow-hidden rounded-lg border border-border-light">
             {command && (
-              <div className="relative max-h-[300px] overflow-auto bg-surface-tertiary dark:bg-gray-950">
+              <div className="relative max-h-[300px] overflow-auto bg-surface-tertiary dark:bg-surface-primary-alt">
                 <CopyButton
                   iconOnly
                   isCopied={isCopied}

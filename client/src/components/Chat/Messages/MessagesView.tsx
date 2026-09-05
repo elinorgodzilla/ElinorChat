@@ -41,7 +41,7 @@ function MessagesViewContent({
       <div className="relative flex-1 overflow-hidden overflow-y-auto">
         <div className="relative h-full">
           <div
-            className="scrollbar-gutter-stable"
+            className="chat-messages-viewport scrollbar-gutter-stable"
             onScroll={debouncedHandleScroll}
             ref={scrollableRef}
             style={{
