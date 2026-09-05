@@ -403,18 +403,10 @@ html {
 
 @font-face {
   font-display: swap;
-  font-family: Jost;
+  font-family: 'Readex Pro';
   font-style: normal;
-  font-weight: 100 900;
-  src: url('$fonts/Jost-Variable.ttf') format('truetype');
-}
-
-@font-face {
-  font-display: swap;
-  font-family: Jost;
-  font-style: italic;
-  font-weight: 100 900;
-  src: url('$fonts/Jost-VariableItalic.ttf') format('truetype');
+  font-weight: 160 700;
+  src: url('$fonts/ReadexPro-Variable.ttf') format('truetype');
 }
 
 @font-face {
