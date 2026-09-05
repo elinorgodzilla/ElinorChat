@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import {
   Permissions,
+  SystemRoles,
   EModelEndpoint,
   PermissionTypes,
   isParamEndpoint,
@@ -23,6 +24,7 @@ import {
   useAgentCapabilities,
   useMCPServerManager,
   useGetAgentsConfig,
+  useAuthContext,
   useHasAccess,
 } from '~/hooks';
 import MCPBuilderPanel from '~/components/SidePanel/MCPBuilder/MCPBuilderPanel';
@@ -52,6 +54,8 @@ export default function useSideNavLinks({
   endpointsConfig: TEndpointsConfig;
   includeHidePanel?: boolean;
 }) {
+  const { user } = useAuthContext();
+  const isAdmin = user?.role === SystemRoles.ADMIN;
   const hasAccessToPrompts = useHasAccess({
     permissionType: PermissionTypes.PROMPTS,
     permission: Permissions.USE,
@@ -150,7 +154,7 @@ export default function useSideNavLinks({
       });
     }
 
-    if (hasAccessToMemories && hasAccessToReadMemories) {
+    if (isAdmin || (hasAccessToMemories && hasAccessToReadMemories)) {
       links.push({
         title: 'com_ui_memories',
         label: '',
@@ -228,6 +232,7 @@ export default function useSideNavLinks({
     skillsEnabled,
     hasAccessToMemories,
     hasAccessToReadMemories,
+    isAdmin,
     interfaceConfig.parameters,
     endpointType,
     hasAccessToBookmarks,

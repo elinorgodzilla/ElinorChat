@@ -33,8 +33,17 @@ const PARTITION_PERSONAL = 'personal';
 export default function MemoryPanel() {
   const localize = useLocalize();
   const { user } = useAuthContext();
+  const hasUseAccess = useHasAccess({
+    permissionType: PermissionTypes.MEMORIES,
+    permission: Permissions.USE,
+  });
+  const hasReadAccess = useHasAccess({
+    permissionType: PermissionTypes.MEMORIES,
+    permission: Permissions.READ,
+  });
+  const canReadMemories = hasUseAccess && hasReadAccess;
   const { data: userData } = useGetUserQuery();
-  const { data: memData, isLoading } = useMemoriesQuery();
+  const { data: memData, isLoading } = useMemoriesQuery({ enabled: canReadMemories });
   const { showToast } = useToastContext();
   const [pageIndex, setPageIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,11 +77,6 @@ export default function MemoryPanel() {
     setReferenceSavedMemories(checked);
     updateMemoryPreferencesMutation.mutate({ memories: checked });
   };
-
-  const hasReadAccess = useHasAccess({
-    permissionType: PermissionTypes.MEMORIES,
-    permission: Permissions.READ,
-  });
 
   const hasUpdateAccess = useHasAccess({
     permissionType: PermissionTypes.MEMORIES,
@@ -143,20 +147,19 @@ export default function MemoryPanel() {
     setPageIndex(0);
   }, [searchQuery, activePartition]);
 
-  if (isLoading) {
+  if (!canReadMemories) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-4">
-        <Spinner />
+      <div className="flex w-full flex-col gap-4 p-4">
+        <p className="text-sm text-text-secondary">{localize('com_ui_no_read_access')}</p>
+        {user?.role === SystemRoles.ADMIN && <AdminSettings />}
       </div>
     );
   }
 
-  if (!hasReadAccess) {
+  if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-sm text-text-secondary">{localize('com_ui_no_read_access')}</p>
-        </div>
+        <Spinner />
       </div>
     );
   }
