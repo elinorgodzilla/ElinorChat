@@ -25,19 +25,19 @@ export const darkTheme: IThemeRGB = {
   'rgb-surface-active-alt': '47 47 47', // #2f2f2f (gray-700)
   'rgb-surface-hover': '66 66 66', // #424242 (gray-600)
   'rgb-surface-hover-alt': '66 66 66', // #424242 (gray-600)
-  'rgb-surface-primary': '52 53 65', // #343541
-  'rgb-surface-primary-alt': '43 44 54', // #2b2c36
-  'rgb-surface-primary-contrast': '43 44 54', // #2b2c36
-  'rgb-surface-secondary': '52 53 65', // #343541
-  'rgb-surface-secondary-alt': '52 53 65', // #343541
-  'rgb-surface-tertiary': '68 70 84', // #444654
-  'rgb-surface-tertiary-alt': '68 70 84', // #444654
-  'rgb-surface-dialog': '43 44 54', // #2b2c36
+  'rgb-surface-primary': '33 33 33', // #212121
+  'rgb-surface-primary-alt': '38 38 38', // #262626
+  'rgb-surface-primary-contrast': '38 38 38', // #262626
+  'rgb-surface-secondary': '33 33 33', // #212121
+  'rgb-surface-secondary-alt': '33 33 33', // #212121
+  'rgb-surface-tertiary': '47 47 47', // #2f2f2f
+  'rgb-surface-tertiary-alt': '47 47 47', // #2f2f2f
+  'rgb-surface-dialog': '38 38 38', // #262626
   'rgb-surface-submit': '4 120 87', // #047857 (green-700)
   'rgb-surface-submit-hover': '6 95 70', // #065f46 (green-800)
   'rgb-surface-destructive': '153 27 27', // #991b1b (red-800)
   'rgb-surface-destructive-hover': '127 29 29', // #7f1d1d (red-900)
-  'rgb-surface-chat': '68 70 84', // #444654
+  'rgb-surface-chat': '47 47 47', // #2f2f2f
 
   // Border colors
   'rgb-border-light': '47 47 47', // #2f2f2f (gray-700)
@@ -50,23 +50,23 @@ export const darkTheme: IThemeRGB = {
   'rgb-brand-purple': '171 104 255', // #ab68ff
 
   // Presentation
-  'rgb-presentation': '52 53 65', // #343541
+  'rgb-presentation': '33 33 33', // #212121
 
   // Utility colors (mapped to existing colors for backwards compatibility)
-  'rgb-background': '52 53 65', // Same as surface-primary
+  'rgb-background': '33 33 33', // Same as surface-primary
   'rgb-foreground': '255 255 255', // Same as text-primary
   'rgb-primary': '66 66 66', // Same as surface-active
   'rgb-primary-foreground': '255 255 255', // Same as surface-primary-contrast
-  'rgb-secondary': '52 53 65', // Same as surface-secondary
+  'rgb-secondary': '33 33 33', // Same as surface-secondary
   'rgb-secondary-foreground': '193 193 193', // Same as text-secondary
-  'rgb-muted': '68 70 84', // Same as surface-tertiary
+  'rgb-muted': '47 47 47', // Same as surface-tertiary
   'rgb-muted-foreground': '140 140 140', // Same as text-tertiary
-  'rgb-accent': '68 70 84', // Same as surface-tertiary
+  'rgb-accent': '47 47 47', // Same as surface-tertiary
   'rgb-accent-foreground': '255 255 255', // Same as text-primary
   'rgb-destructive-foreground': '255 255 255', // Same as text-primary
   'rgb-border': '82 82 82', // Same as border-medium
   'rgb-input': '66 66 66', // Same as border-light
   'rgb-ring': '255 255 255', // Same as ring-primary
-  'rgb-card': '52 53 65', // Same as surface-secondary
+  'rgb-card': '33 33 33', // Same as surface-secondary
   'rgb-card-foreground': '255 255 255', // Same as text-primary
 };
