@@ -83,14 +83,26 @@ export default function useMessageScrolling(messagesTree?: TMessage[] | null) {
     debouncedSetShowScrollButton(false);
   };
 
-  const { scrollToRef: scrollToBottom, handleSmoothToRef } = useScrollToRef({
+  const { scrollToRef: scrollToBottom } = useScrollToRef({
     targetRef: messagesEndRef,
     callback: scrollCallback,
-    smoothCallback: () => {
-      scrollCallback();
-      setAbortScroll(false);
-    },
+    smoothCallback: scrollCallback,
   });
+
+  const handleScrollToBottom = useCallback(() => {
+    const scrollEl = scrollableRef.current;
+    if (!scrollEl) {
+      return;
+    }
+
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'instant' });
+    reconcileMessageContentLayout(scrollEl);
+    clearTimeout(timeoutIdRef.current);
+    setShowScrollButton(false);
+    isNearBottomRef.current = true;
+    suppressNextResizeFollowRef.current = false;
+    setAbortScroll(false);
+  }, [setAbortScroll]);
 
   const clampScrollToContent = useCallback(() => {
     const scrollEl = scrollableRef.current;
@@ -193,7 +205,7 @@ export default function useMessageScrolling(messagesTree?: TMessage[] | null) {
     messagesEndRef,
     scrollToBottom,
     showScrollButton,
-    handleSmoothToRef,
+    handleScrollToBottom,
     debouncedHandleScroll,
   };
 }

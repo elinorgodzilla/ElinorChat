@@ -2,10 +2,8 @@ import React from 'react';
 import { RecoilRoot } from 'recoil';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { TConversation, TMessage } from 'librechat-data-provider';
-import {
-  MessagesViewContext,
-  type MessagesViewContextValue,
-} from '~/Providers/MessagesViewContext';
+import type { MessagesViewContextValue } from '~/Providers/MessagesViewContext';
+import { MessagesViewContext } from '~/Providers/MessagesViewContext';
 
 type MockScrollToBottom = jest.Mock & {
   cancel: jest.Mock;
@@ -60,7 +58,7 @@ class MockResizeObserver {
   }
 
   trigger() {
-    this.callback([], this as unknown as ResizeObserver);
+    this.callback([], this);
   }
 }
 
@@ -72,6 +70,9 @@ class MockIntersectionObserver {
   }
 
   readonly callback: IntersectionObserverCallback;
+  readonly root = null;
+  readonly rootMargin = '0px';
+  readonly thresholds = [0.85];
   observe = jest.fn();
   unobserve = jest.fn();
   disconnect = jest.fn();
@@ -80,6 +81,23 @@ class MockIntersectionObserver {
   constructor(callback: IntersectionObserverCallback) {
     this.callback = callback;
     MockIntersectionObserver.instances.push(this);
+  }
+
+  trigger(target: Element, isIntersecting: boolean) {
+    this.callback(
+      [
+        {
+          target,
+          isIntersecting,
+          intersectionRatio: isIntersecting ? 1 : 0,
+          boundingClientRect: target.getBoundingClientRect(),
+          intersectionRect: target.getBoundingClientRect(),
+          rootBounds: null,
+          time: performance.now(),
+        },
+      ],
+      this,
+    );
   }
 }
 
@@ -137,15 +155,30 @@ function createContextValue(
 }
 
 function ScrollingHarness({ messagesTree }: { messagesTree?: TMessage[] | null }) {
-  const { contentRef, scrollableRef, messagesEndRef, debouncedHandleScroll } =
-    useMessageScrolling(messagesTree);
+  const {
+    contentRef,
+    scrollableRef,
+    messagesEndRef,
+    debouncedHandleScroll,
+    handleScrollToBottom,
+    showScrollButton,
+  } = useMessageScrolling(messagesTree);
 
   return (
-    <div ref={scrollableRef} onScroll={debouncedHandleScroll} data-testid="scrollable">
-      <div ref={contentRef} data-testid="content">
-        <div ref={messagesEndRef} data-testid="end" />
+    <>
+      <div ref={scrollableRef} onScroll={debouncedHandleScroll} data-testid="scrollable">
+        <div ref={contentRef} data-testid="content">
+          <div ref={messagesEndRef} data-testid="end" />
+        </div>
       </div>
-    </div>
+      <button
+        type="button"
+        aria-label="Scroll to bottom"
+        onClick={handleScrollToBottom}
+        data-testid="scroll-button"
+      />
+      <output data-testid="show-scroll-button">{String(showScrollButton)}</output>
+    </>
   );
 }
 
@@ -165,8 +198,9 @@ function renderScrolling({
   );
 }
 
-describe('useMessageScrolling resize reconciliation', () => {
+describe('useMessageScrolling', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     MockResizeObserver.reset();
     MockIntersectionObserver.reset();
     mockScrollToBottom.mockClear();
@@ -175,19 +209,138 @@ describe('useMessageScrolling resize reconciliation', () => {
     mockHandleSmoothToRef.mockClear();
     mockReconcileMessageContentLayout.mockClear();
     mockScrollCallback = undefined;
-    (global as unknown as { ResizeObserver: typeof MockResizeObserver }).ResizeObserver =
-      MockResizeObserver;
-    (
-      global as unknown as { IntersectionObserver: typeof MockIntersectionObserver }
-    ).IntersectionObserver = MockIntersectionObserver;
+    global.ResizeObserver = MockResizeObserver;
+    global.IntersectionObserver = MockIntersectionObserver;
   });
 
   afterEach(() => {
-    (global as unknown as { ResizeObserver: typeof ResizeObserver | undefined }).ResizeObserver =
-      originalResizeObserver;
-    (
-      global as unknown as { IntersectionObserver: typeof IntersectionObserver | undefined }
-    ).IntersectionObserver = originalIntersectionObserver;
+    global.ResizeObserver = originalResizeObserver;
+    global.IntersectionObserver = originalIntersectionObserver;
+    jest.useRealTimers();
+  });
+
+  it('scrolls only the current container instantly and reconciles layout without smooth scrolling', () => {
+    const setAbortScroll = jest.fn();
+    renderScrolling({ contextOverrides: { abortScroll: true, setAbortScroll } });
+    const scrollable = screen.getByTestId('scrollable');
+    scrollable.scrollTo = jest.fn();
+    Object.defineProperty(scrollable, 'scrollHeight', { value: 1000, configurable: true });
+
+    fireEvent.click(screen.getByTestId('scroll-button'));
+
+    expect(scrollable.scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollable.scrollTo).toHaveBeenCalledWith({ top: 1000, behavior: 'instant' });
+    expect(mockReconcileMessageContentLayout).toHaveBeenCalledWith(scrollable);
+    expect(mockReconcileMessageContentLayout.mock.invocationCallOrder[0]).toBeGreaterThan(
+      jest.mocked(scrollable.scrollTo).mock.invocationCallOrder[0],
+    );
+    expect(setAbortScroll).toHaveBeenCalledWith(false);
+    expect(mockHandleSmoothToRef).not.toHaveBeenCalled();
+    expect(mockScrollToBottom).not.toHaveBeenCalled();
+  });
+
+  it('hides immediately and cancels a pending visibility debounce', () => {
+    renderScrolling();
+    screen.getByTestId('scrollable').scrollTo = jest.fn();
+    const observer = MockIntersectionObserver.instances[0];
+    const end = screen.getByTestId('end');
+
+    act(() => {
+      observer.trigger(end, false);
+      jest.advanceTimersByTime(150);
+    });
+    expect(screen.getByTestId('show-scroll-button')).toHaveTextContent('true');
+
+    act(() => observer.trigger(end, false));
+    fireEvent.click(screen.getByTestId('scroll-button'));
+
+    expect(screen.getByTestId('show-scroll-button')).toHaveTextContent('false');
+    act(() => jest.advanceTimersByTime(1000));
+    expect(screen.getByTestId('show-scroll-button')).toHaveTextContent('false');
+  });
+
+  it('resumes streaming resize follow after aborting, scrolling away, and interacting with content', () => {
+    function StreamingHarness() {
+      const [abortScroll, setAbortScroll] = React.useState(true);
+      return (
+        <MessagesViewContext.Provider value={createContextValue({ abortScroll, setAbortScroll })}>
+          <ScrollingHarness />
+        </MessagesViewContext.Provider>
+      );
+    }
+
+    render(
+      <RecoilRoot>
+        <StreamingHarness />
+      </RecoilRoot>,
+    );
+    const scrollable = screen.getByTestId('scrollable');
+    scrollable.scrollTo = jest.fn();
+    Object.defineProperty(scrollable, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(scrollable, 'clientHeight', { value: 200, configurable: true });
+    scrollable.scrollTop = 100;
+    fireEvent.scroll(scrollable);
+    act(() => MockResizeObserver.last()?.trigger());
+    expect(mockScrollToBottom).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(screen.getByTestId('content'));
+    fireEvent.click(screen.getByTestId('scroll-button'));
+    expect(mockScrollToBottom).not.toHaveBeenCalled();
+
+    act(() => MockResizeObserver.last()?.trigger());
+    expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
+    act(() => MockResizeObserver.last()?.trigger());
+    expect(mockScrollToBottom).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles repeated clicks immediately using the latest height without throttling', () => {
+    renderScrolling();
+    const scrollable = screen.getByTestId('scrollable');
+    scrollable.scrollTo = jest.fn();
+    const button = screen.getByTestId('scroll-button');
+
+    for (const height of [1000, 1200, 1400]) {
+      Object.defineProperty(scrollable, 'scrollHeight', { value: height, configurable: true });
+      fireEvent.click(button);
+      expect(scrollable.scrollTo).toHaveBeenLastCalledWith({ top: height, behavior: 'instant' });
+    }
+
+    expect(scrollable.scrollTo).toHaveBeenCalledTimes(3);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(scrollable.scrollTo).toHaveBeenCalledTimes(3);
+    expect(mockHandleSmoothToRef).not.toHaveBeenCalled();
+    expect(mockScrollToBottom).not.toHaveBeenCalled();
+  });
+
+  it('keeps explicit scrolling and abort state scoped to the clicked chat view', () => {
+    const firstContext = createContextValue({ abortScroll: true });
+    const secondContext = createContextValue({ abortScroll: true, index: 1 });
+    render(
+      <RecoilRoot>
+        <MessagesViewContext.Provider value={firstContext}>
+          <ScrollingHarness />
+        </MessagesViewContext.Provider>
+        <MessagesViewContext.Provider value={secondContext}>
+          <ScrollingHarness />
+        </MessagesViewContext.Provider>
+      </RecoilRoot>,
+    );
+    const [firstScrollable, secondScrollable] = screen.getAllByTestId('scrollable');
+    firstScrollable.scrollTo = jest.fn();
+    secondScrollable.scrollTo = jest.fn();
+    Object.defineProperty(firstScrollable, 'scrollHeight', { value: 1000 });
+    Object.defineProperty(secondScrollable, 'scrollHeight', { value: 2000 });
+
+    fireEvent.click(screen.getAllByTestId('scroll-button')[1]);
+
+    expect(secondScrollable.scrollTo).toHaveBeenCalledWith({ top: 2000, behavior: 'instant' });
+    expect(secondContext.setAbortScroll).toHaveBeenCalledWith(false);
+    expect(firstScrollable.scrollTo).not.toHaveBeenCalled();
+    expect(firstContext.setAbortScroll).not.toHaveBeenCalled();
+    expect(mockReconcileMessageContentLayout).toHaveBeenCalledTimes(1);
+    expect(mockReconcileMessageContentLayout).toHaveBeenCalledWith(secondScrollable);
+    expect(mockScrollToBottom).not.toHaveBeenCalled();
+    expect(mockHandleSmoothToRef).not.toHaveBeenCalled();
   });
 
   it('scrolls to the bottom when streaming content resizes and auto-scroll is active', () => {

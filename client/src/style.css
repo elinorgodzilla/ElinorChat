@@ -755,83 +755,32 @@ pre {
   margin: 0;
 }
 
-/* Scroll-to-bottom button — enter */
-.scroll-animation-enter {
-  opacity: 0;
-  transform: translateY(12px) scale(0.9);
-  pointer-events: none;
-}
-
-.scroll-animation-enter-active {
-  animation: scroll-btn-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.scroll-animation-enter-done {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-@keyframes scroll-btn-enter {
-  0% {
-    opacity: 0;
-    transform: translateY(12px) scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Scroll-to-bottom button — exit */
-.scroll-animation-exit-active {
-  animation: scroll-btn-exit 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
-  pointer-events: none;
-}
-
-.scroll-animation-exit-done {
-  display: none;
-}
-
-@keyframes scroll-btn-exit {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.95);
-  }
-}
-
-/* Scroll-to-bottom button */
-.premium-scroll-button {
+.chat-scroll-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  background-color: #ffffff;
-  z-index: 10;
-  overflow: hidden;
-  transition: transform 100ms ease;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.625rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  background-color: rgba(225, 225, 225, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-.dark .premium-scroll-button {
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  background-color: #2a2a2e;
+.chat-scroll-button:hover {
+  background-color: rgba(210, 210, 210, 0.9);
 }
 
-.scroll-animation-enter-active .premium-scroll-button {
-  pointer-events: none !important;
+.dark .chat-scroll-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: rgba(65, 65, 65, 0.78);
 }
 
-.premium-scroll-button:active {
-  transform: scale(0.95);
+.dark .chat-scroll-button:hover {
+  background-color: rgba(78, 78, 78, 0.88);
 }
 
 .blink {

@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useAtomValue } from 'jotai';
 import { useRecoilValue } from 'recoil';
-import { CSSTransition } from 'react-transition-group';
 import type { TMessage } from 'librechat-data-provider';
 import { useScreenshot, useMessageScrolling, useLocalize } from '~/hooks';
 import ScrollToBottom from '~/components/Messages/ScrollToBottom';
@@ -22,7 +21,6 @@ function MessagesViewContent({
   const { screenshotTargetRef } = useScreenshot();
   const scrollButtonPreference = useRecoilValue(store.showScrollButton);
   const [currentEditId, setCurrentEditId] = useState<number | string | null>(-1);
-  const scrollToBottomRef = useRef<HTMLDivElement>(null);
 
   const {
     conversation,
@@ -30,7 +28,7 @@ function MessagesViewContent({
     scrollableRef,
     messagesEndRef,
     showScrollButton,
-    handleSmoothToRef,
+    handleScrollToBottom,
     debouncedHandleScroll,
   } = useMessageScrolling(_messagesTree);
 
@@ -80,19 +78,9 @@ function MessagesViewContent({
             </div>
           </div>
 
-          <CSSTransition
-            in={showScrollButton && scrollButtonPreference}
-            timeout={{
-              enter: 300,
-              exit: 250,
-            }}
-            classNames="scroll-animation"
-            unmountOnExit={true}
-            appear={true}
-            nodeRef={scrollToBottomRef}
-          >
-            <ScrollToBottom ref={scrollToBottomRef} scrollHandler={handleSmoothToRef} />
-          </CSSTransition>
+          {showScrollButton && scrollButtonPreference && (
+            <ScrollToBottom scrollHandler={handleScrollToBottom} />
+          )}
 
           <MessageNav scrollableRef={scrollableRef} />
         </div>
