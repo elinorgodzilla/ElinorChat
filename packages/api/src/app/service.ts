@@ -47,6 +47,8 @@ export interface AppConfigServiceDeps {
   }) => Promise<Array<{ principalType: string; principalId?: string | Types.ObjectId }>>;
   /** TTL in ms for per-user/role merged config caches. Defaults to 60 000. */
   overrideCacheTtl?: number;
+  /** Deployment-specific restrictions applied to loaded, merged, and cached configs. */
+  normalizeConfig?: (config: AppConfig) => AppConfig;
 }
 
 export interface GetAppConfigOptions {
@@ -129,6 +131,7 @@ export function createAppConfigService(deps: AppConfigServiceDeps): {
     getApplicableConfigs,
     getUserPrincipals,
     overrideCacheTtl = DEFAULT_OVERRIDE_CACHE_TTL,
+    normalizeConfig = (config: AppConfig) => config,
   } = deps;
 
   const cache = getCache(cacheKeys.APP_CONFIG);
@@ -169,13 +172,16 @@ export function createAppConfigService(deps: AppConfigServiceDeps): {
         throw new Error('Failed to initialize app configuration through AppService.');
       }
 
+      baseConfig = normalizeConfig(baseConfig);
+
       if (baseConfig.availableTools) {
         await setCachedTools(baseConfig.availableTools);
       }
 
       await cache.set(BASE_CONFIG_KEY, baseConfig);
+      return baseConfig;
     }
-    return baseConfig;
+    return normalizeConfig(baseConfig);
   }
 
   /**
@@ -202,7 +208,7 @@ export function createAppConfigService(deps: AppConfigServiceDeps): {
     if (!refresh) {
       const cachedMerged = (await cache.get(cacheKey)) as AppConfig | undefined;
       if (cachedMerged) {
-        return cachedMerged;
+        return normalizeConfig(cachedMerged);
       }
     }
 
@@ -241,7 +247,7 @@ export function createAppConfigService(deps: AppConfigServiceDeps): {
         return baseConfig;
       }
 
-      const merged = mergeConfigOverrides(baseConfig, configs);
+      const merged = normalizeConfig(mergeConfigOverrides(baseConfig, configs));
       await cache.set(cacheKey, merged, overrideCacheTtl);
       return merged;
     } catch (error) {

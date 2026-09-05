@@ -2,7 +2,6 @@ import { isAfter } from 'date-fns';
 import React, { useMemo } from 'react';
 import { imageExtRegex } from 'librechat-data-provider';
 import type { TFile, TAttachment, TAttachmentMetadata } from 'librechat-data-provider';
-import type { Artifact } from '~/common';
 import {
   artifactTypeForAttachment,
   bySalience,
@@ -12,17 +11,11 @@ import {
   isTextAttachment,
   renderAttachmentKey,
 } from './attachmentTypes';
-import { fileToArtifact, TOOL_ARTIFACT_TYPES } from '~/utils/artifacts';
+import { TOOL_ARTIFACT_TYPES } from '~/utils/artifacts';
 import Image from '~/components/Chat/Messages/Content/Image';
 import ToolMermaidArtifact from './ToolMermaidArtifact';
-import ToolArtifactCard from './ToolArtifactCard';
 import { useLocalize } from '~/hooks';
 import LogLink from './LogLink';
-
-interface PanelEntry {
-  attachment: TAttachment;
-  artifact: Artifact;
-}
 
 interface MermaidEntry {
   attachment: TAttachment;
@@ -39,7 +32,6 @@ type ImageAttachment = TFile & TAttachmentMetadata;
 
 const LogContent: React.FC<LogContentProps> = ({ output = '', renderImages, attachments }) => {
   const localize = useLocalize();
-  const artifactPreviewPending = localize('com_ui_artifact_preview_pending');
 
   const processedContent = useMemo(() => {
     if (!output) {
@@ -50,92 +42,74 @@ const LogContent: React.FC<LogContentProps> = ({ output = '', renderImages, atta
     return parts[0].trim();
   }, [output]);
 
-  const {
-    imageAttachments,
-    textAttachments,
-    panelAttachments,
-    mermaidAttachments,
-    nonInlineAttachments,
-  } = useMemo(() => {
-    const imageAtts: ImageAttachment[] = [];
-    const textAtts: Array<TFile & TAttachmentMetadata> = [];
-    const panelAtts: PanelEntry[] = [];
-    const mermaidAtts: MermaidEntry[] = [];
-    const otherAtts: TAttachment[] = [];
+  const { imageAttachments, textAttachments, mermaidAttachments, nonInlineAttachments } =
+    useMemo(() => {
+      const imageAtts: ImageAttachment[] = [];
+      const textAtts: Array<TFile & TAttachmentMetadata> = [];
+      const mermaidAtts: MermaidEntry[] = [];
+      const otherAtts: TAttachment[] = [];
 
-    const now = new Date();
-    attachments?.forEach((attachment) => {
-      // Sandbox-internal placeholders (`.dirkeep` etc.) are
-      // implementation detail — never list them as their own files.
-      if (isInternalSandboxArtifact(attachment)) {
-        return;
-      }
-      const fileData = attachment as TFile & TAttachmentMetadata;
-      const { filepath = null } = fileData;
-      // LogContent uses a looser image check than Attachment.tsx (no
-      // width/height requirement) to keep parity with the legacy log surface.
-      const isImage = imageExtRegex.test(attachment.filename ?? '') && filepath != null;
-      if (isImage) {
-        imageAtts.push(attachment as ImageAttachment);
-        return;
-      }
-      // Expired downloads must keep the legacy "download expired" message.
-      // Panel cards and the mermaid renderer would otherwise present an
-      // active-looking surface backed by a dead link, so route expired
-      // entries through `renderAttachment` instead.
-      const expiresAt =
-        'expiresAt' in attachment && typeof attachment.expiresAt === 'number'
-          ? new Date(attachment.expiresAt)
-          : null;
-      const isExpired = expiresAt != null && isAfter(now, expiresAt);
-      if (isExpired) {
+      const now = new Date();
+      attachments?.forEach((attachment) => {
+        // Sandbox-internal placeholders (`.dirkeep` etc.) are
+        // implementation detail — never list them as their own files.
+        if (isInternalSandboxArtifact(attachment)) {
+          return;
+        }
+        const fileData = attachment as TFile & TAttachmentMetadata;
+        const { filepath = null } = fileData;
+        // LogContent uses a looser image check than Attachment.tsx (no
+        // width/height requirement) to keep parity with the legacy log surface.
+        const isImage = imageExtRegex.test(attachment.filename ?? '') && filepath != null;
+        if (isImage) {
+          imageAtts.push(attachment as ImageAttachment);
+          return;
+        }
+        // Expired downloads must keep the legacy "download expired" message.
+        // Panel cards and the mermaid renderer would otherwise present an
+        // active-looking surface backed by a dead link, so route expired
+        // entries through `renderAttachment` instead.
+        const expiresAt =
+          'expiresAt' in attachment && typeof attachment.expiresAt === 'number'
+            ? new Date(attachment.expiresAt)
+            : null;
+        const isExpired = expiresAt != null && isAfter(now, expiresAt);
+        if (isExpired) {
+          otherAtts.push(attachment);
+          return;
+        }
+        const artType = artifactTypeForAttachment(attachment);
+        if (artType === TOOL_ARTIFACT_TYPES.MERMAID) {
+          if (fileData.text) {
+            mermaidAtts.push({
+              attachment,
+              text: fileData.text,
+            });
+          }
+          return;
+        }
+        if (isTextAttachment(attachment)) {
+          textAtts.push(fileData);
+          return;
+        }
         otherAtts.push(attachment);
-        return;
-      }
-      const artType = artifactTypeForAttachment(attachment);
-      if (artType === TOOL_ARTIFACT_TYPES.MERMAID) {
-        if (fileData.text) {
-          mermaidAtts.push({
-            attachment,
-            text: fileData.text,
-          });
-        }
-        return;
-      }
-      if (artType != null) {
-        const artifact = fileToArtifact(fileData, {
-          placeholder: artifactPreviewPending,
-          preClassifiedType: artType,
-        });
-        if (artifact) {
-          panelAtts.push({ attachment, artifact });
-        }
-        return;
-      }
-      if (isTextAttachment(attachment)) {
-        textAtts.push(fileData);
-        return;
-      }
-      otherAtts.push(attachment);
-    });
+      });
 
-    // Sink empty / placeholder files in each bucket so the user's eye
-    // lands on the real artifact first. Stable sort preserves the
-    // arrival order among non-empty entries.
-    imageAtts.sort(bySalience);
-    textAtts.sort(bySalience);
-    panelAtts.sort(byEntrySalience);
-    mermaidAtts.sort(byEntrySalience);
-    otherAtts.sort(bySalience);
+      // Sink empty / placeholder files in each bucket so the user's eye
+      // lands on the real artifact first. Stable sort preserves the
+      // arrival order among non-empty entries.
+      imageAtts.sort(bySalience);
+      textAtts.sort(bySalience);
+      mermaidAtts.sort(byEntrySalience);
+      otherAtts.sort(bySalience);
 
-    return {
-      imageAttachments: renderImages === true ? imageAtts : null,
-      textAttachments: textAtts,
-      panelAttachments: panelAtts,
-      mermaidAttachments: mermaidAtts,
-      nonInlineAttachments: otherAtts,
-    };
-  }, [attachments, renderImages, artifactPreviewPending]);
+      return {
+        imageAttachments: renderImages === true ? imageAtts : null,
+        textAttachments: textAtts,
+        mermaidAttachments: mermaidAtts,
+        nonInlineAttachments: otherAtts,
+      };
+    }, [attachments, renderImages]);
 
   const renderAttachment = (file: TAttachment) => {
     const now = new Date();
@@ -177,17 +151,6 @@ const LogContent: React.FC<LogContentProps> = ({ output = '', renderImages, atta
               {renderAttachment(file)}
               {index < nonInlineAttachments.length - 1 && ', '}
             </React.Fragment>
-          ))}
-        </div>
-      )}
-      {panelAttachments.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {panelAttachments.map(({ attachment, artifact }, index) => (
-            <ToolArtifactCard
-              key={renderAttachmentKey('artifact', attachment, index)}
-              attachment={attachment}
-              artifact={artifact}
-            />
           ))}
         </div>
       )}

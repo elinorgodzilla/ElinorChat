@@ -56,6 +56,7 @@ import {
 import useEventHandlers, { buildCreatedInitialResponse } from './useEventHandlers';
 import useSteerConvert from '~/hooks/Chat/useSteerConvert';
 import { useAuthContext } from '~/hooks/AuthContext';
+import { projectSearchState } from '~/utils/ephemeral';
 import useUsageHandler from './useUsageHandler';
 import store from '~/store';
 
@@ -1509,7 +1510,11 @@ export default function useResumableSSE(
    */
   const startGeneration = useCallback(
     async (currentSubmission: TSubmission, signal?: AbortSignal): Promise<string | null> => {
-      const payloadData = createPayload(currentSubmission);
+      const payloadData = createPayload({
+        ...currentSubmission,
+        ephemeralAgent: projectSearchState(currentSubmission.ephemeralAgent),
+        manualSkills: undefined,
+      });
       let { payload } = payloadData;
       payload = removeNullishValues(payload) as TPayload;
 

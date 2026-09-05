@@ -1,18 +1,10 @@
-import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { Tools } from 'librechat-data-provider';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import type { CodeBarProps } from '~/common';
 import FloatingCodeBar from '~/components/Messages/Content/FloatingCodeBar';
-import ResultSwitcher from '~/components/Messages/Content/ResultSwitcher';
-import { useToolCallsMapContext, useMessageContext } from '~/Providers';
-import { LogContent } from '~/components/Chat/Messages/Content/Parts';
 import CodeBar from '~/components/Messages/Content/CodeBar';
-import { useLocalize } from '~/hooks';
 import cn from '~/utils/cn';
 
-type CodeBlockProps = Pick<
-  CodeBarProps,
-  'lang' | 'plugin' | 'error' | 'allowExecution' | 'blockIndex'
-> & {
+type CodeBlockProps = Pick<CodeBarProps, 'lang' | 'plugin' | 'error' | 'blockIndex'> & {
   codeChildren: React.ReactNode;
   classProp?: string;
 };
@@ -22,33 +14,14 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
   blockIndex,
   codeChildren,
   classProp = '',
-  allowExecution = true,
   plugin = null,
   error,
 }) => {
-  const localize = useLocalize();
   const codeRef = useRef<HTMLElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const codeBarRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isCodeBarVisible, setIsCodeBarVisible] = useState(true);
-
-  const toolCallsMap = useToolCallsMapContext();
-  const { messageId, partIndex } = useMessageContext();
-  const key = allowExecution
-    ? `${messageId}_${partIndex ?? 0}_${blockIndex ?? 0}_${Tools.execute_code}`
-    : '';
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const fetchedToolCalls = toolCallsMap?.[key];
-  const [toolCalls, setToolCalls] = useState(toolCallsMap?.[key] ?? null);
-
-  useEffect(() => {
-    if (fetchedToolCalls) {
-      setToolCalls(fetchedToolCalls);
-      setCurrentIndex(fetchedToolCalls.length - 1);
-    }
-  }, [fetchedToolCalls]);
 
   useEffect(() => {
     const el = codeBarRef.current;
@@ -80,20 +53,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
     }
   }, []);
 
-  const currentToolCall = useMemo(() => toolCalls?.[currentIndex], [toolCalls, currentIndex]);
-
-  const next = useCallback(() => {
-    if (toolCalls && currentIndex < toolCalls.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  }, [toolCalls, currentIndex]);
-
-  const previous = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  }, [currentIndex]);
-
   const isNonCode = !!(plugin === true || error === true);
   const language = isNonCode ? 'json' : lang;
   const showFloating = isHovered && !isCodeBarVisible;
@@ -114,7 +73,6 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           codeRef={codeRef}
           blockIndex={blockIndex}
           plugin={plugin === true}
-          allowExecution={allowExecution}
         />
       </div>
       <div
@@ -135,35 +93,8 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
         codeRef={codeRef}
         blockIndex={blockIndex}
         plugin={plugin === true}
-        allowExecution={allowExecution}
         isVisible={showFloating}
       />
-      {allowExecution === true && toolCalls && toolCalls.length > 0 && (
-        <>
-          <div className="border-t border-border-light bg-surface-primary-alt p-4 text-xs dark:bg-transparent">
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-text-secondary">
-              {localize('com_ui_output')}
-            </div>
-            <div className="flex flex-col-reverse text-text-primary">
-              <pre className="shrink-0">
-                <LogContent
-                  output={(currentToolCall?.result as string | undefined) ?? ''}
-                  attachments={currentToolCall?.attachments ?? []}
-                  renderImages={true}
-                />
-              </pre>
-            </div>
-          </div>
-          {toolCalls.length > 1 && (
-            <ResultSwitcher
-              currentIndex={currentIndex}
-              totalCount={toolCalls.length}
-              onPrevious={previous}
-              onNext={next}
-            />
-          )}
-        </>
-      )}
     </div>
   );
 };

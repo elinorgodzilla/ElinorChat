@@ -1,25 +1,18 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { Constants, ContentTypes } from 'librechat-data-provider';
+import { Tools, Constants, ContentTypes, ToolCallTypes } from 'librechat-data-provider';
+import type { ComponentProps } from 'react';
 import type { TMessageContentParts } from 'librechat-data-provider';
 import Part from '../Part';
+import WebSearch from '../WebSearch';
 
 jest.mock('../Parts', () => ({
   ImageGen: () => <div data-testid="image-gen" />,
-  ExecuteCode: () => <div data-testid="execute-code" />,
   AgentUpdate: () => <div data-testid="agent-update" />,
   EmptyText: () => <div data-testid="empty-text" />,
   Reasoning: () => <div data-testid="reasoning" />,
   Summary: () => <div data-testid="summary" />,
   Text: ({ text }: { text?: string }) => <div data-testid="text">{text}</div>,
-  SkillCall: () => <div data-testid="skill-call" />,
-  ReadFileCall: () => <div data-testid="read-file-call" />,
-  FileAuthoringCall: ({ toolName }: { toolName: string }) => (
-    <div data-testid="file-authoring-call" data-tool-name={toolName} />
-  ),
-  BashCall: ({ commandField }: { commandField?: string }) => (
-    <div data-testid="bash-call" data-command-field={commandField ?? 'command'} />
-  ),
   SubagentCall: () => <div data-testid="subagent-call" />,
 }));
 
@@ -49,12 +42,16 @@ jest.mock('../Container', () => ({
 
 jest.mock('../WebSearch', () => ({
   __esModule: true,
-  default: () => <div data-testid="web-search" />,
+  default: jest.fn(() => <div data-testid="web-search" />),
 }));
 
 jest.mock('../ToolCall', () => ({
   __esModule: true,
-  default: () => <div data-testid="tool-call" />,
+  default: ({ name, args, output }: { name: string; args: string; output: string }) => (
+    <div data-testid="tool-call">
+      {name} {args} {output}
+    </div>
+  ),
 }));
 
 jest.mock('../Image', () => ({
@@ -66,69 +63,70 @@ jest.mock('~/utils', () => ({
   getCachedPreview: jest.fn(),
 }));
 
-const renderPart = (part: TMessageContentParts) =>
-  render(<Part part={part} isSubmitting={false} showCursor={false} isCreatedByUser={false} />);
+const renderPart = (part: TMessageContentParts, props: Partial<ComponentProps<typeof Part>> = {}) =>
+  render(
+    <Part part={part} isSubmitting={false} showCursor={false} isCreatedByUser={false} {...props} />,
+  );
 
-const toolCallPart = (name: string, args = '{"code":"echo hi"}'): TMessageContentParts =>
-  ({
-    type: ContentTypes.TOOL_CALL,
-    [ContentTypes.TOOL_CALL]: {
-      id: 'call_1',
-      name,
-      args,
-      output: 'hi',
-      progress: 1,
-    },
-  }) as unknown as TMessageContentParts;
+const toolCallPart = (name: string, args = '{"code":"echo hi"}'): TMessageContentParts => ({
+  type: ContentTypes.TOOL_CALL,
+  [ContentTypes.TOOL_CALL]: {
+    type: ToolCallTypes.TOOL_CALL,
+    id: 'call_1',
+    name,
+    args,
+    output: 'hi',
+    progress: 1,
+  },
+});
 
 describe('Part tool renderer selection', () => {
-  it('routes bash PTC tool calls through the BashCall renderer', () => {
-    renderPart(toolCallPart(Constants.BASH_PROGRAMMATIC_TOOL_CALLING));
-
-    expect(screen.getByTestId('bash-call')).toHaveAttribute('data-command-field', 'code');
-    expect(screen.queryByTestId('execute-code')).not.toBeInTheDocument();
+  it.each([
+    String(Constants.BASH_PROGRAMMATIC_TOOL_CALLING),
+    String(Constants.PROGRAMMATIC_TOOL_CALLING),
+    Tools.execute_code,
+    Tools.bash_tool,
+    'skill',
+    'read_file',
+    'create_file',
+    'edit_file',
+  ])('keeps historical %s input and output in a generic tool record', (name) => {
+    renderPart(toolCallPart(name));
+    expect(screen.getByTestId('tool-call')).toHaveTextContent(name);
+    expect(screen.getByTestId('tool-call')).toHaveTextContent('{"code":"echo hi"} hi');
   });
 
-  it('routes default run_tools_with_code PTC calls through the BashCall renderer', () => {
-    renderPart(toolCallPart(Constants.PROGRAMMATIC_TOOL_CALLING));
-
-    expect(screen.getByTestId('bash-call')).toHaveAttribute('data-command-field', 'code');
-    expect(screen.queryByTestId('execute-code')).not.toBeInTheDocument();
+  it('preserves web search attachments and expansion callbacks', () => {
+    const attachments: NonNullable<ComponentProps<typeof Part>['attachments']> = [];
+    const onToolExpand = jest.fn();
+    renderPart(toolCallPart(Tools.web_search), { attachments, onToolExpand });
+    expect(jest.mocked(WebSearch)).toHaveBeenCalledWith(
+      expect.objectContaining({ attachments, onExpand: onToolExpand, output: 'hi' }),
+      expect.anything(),
+    );
   });
 
-  it('keeps Python PTC calls on the ExecuteCode renderer', () => {
-    renderPart(
-      toolCallPart(Constants.PROGRAMMATIC_TOOL_CALLING, '{"lang":"py","code":"print(1)"}'),
-    );
-
-    expect(screen.getByTestId('execute-code')).toBeInTheDocument();
-    expect(screen.queryByTestId('bash-call')).not.toBeInTheDocument();
+  it('keeps legacy code-interpreter input and logs readable as a generic record', () => {
+    renderPart({
+      type: ContentTypes.TOOL_CALL,
+      tool_call: {
+        id: 'old-code',
+        type: ToolCallTypes.CODE_INTERPRETER,
+        code_interpreter: {
+          input: 'print("saved")',
+          outputs: [{ type: 'logs', logs: 'saved result' }],
+        },
+      },
+    });
+    expect(screen.getByTestId('tool-call')).toHaveTextContent('print("saved")');
+    expect(screen.getByTestId('tool-call')).toHaveTextContent('saved result');
   });
 
-  it('routes create_file calls through the file-authoring renderer', () => {
-    renderPart(
-      toolCallPart('create_file', '{"file_path":"skills/demo/SKILL.md","content":"# Demo"}'),
-    );
-
-    expect(screen.getByTestId('file-authoring-call')).toHaveAttribute(
-      'data-tool-name',
-      'create_file',
-    );
-    expect(screen.queryByTestId('tool-call')).not.toBeInTheDocument();
-  });
-
-  it('routes edit_file calls through the file-authoring renderer', () => {
-    renderPart(
-      toolCallPart(
-        'edit_file',
-        '{"file_path":"skills/demo/SKILL.md","old_text":"Demo","new_text":"Updated"}',
-      ),
-    );
-
-    expect(screen.getByTestId('file-authoring-call')).toHaveAttribute(
-      'data-tool-name',
-      'edit_file',
-    );
-    expect(screen.queryByTestId('tool-call')).not.toBeInTheDocument();
-  });
+  it.each(['image_gen_oai', 'image_edit_oai', 'gemini_image_gen'])(
+    'preserves %s images',
+    (name) => {
+      renderPart(toolCallPart(name));
+      expect(screen.getByTestId('image-gen')).toBeInTheDocument();
+    },
+  );
 });

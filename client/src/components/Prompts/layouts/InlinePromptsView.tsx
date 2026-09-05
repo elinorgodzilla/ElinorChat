@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { PermissionTypes, Permissions } from 'librechat-data-provider';
+import { PromptGroupsProvider } from '~/Providers/PromptGroupsContext';
 import EmptyPromptPreview from '../display/EmptyPromptPreview';
 import CreatePromptForm from '../forms/CreatePromptForm';
 import { useHasAccess } from '~/hooks';
@@ -37,12 +38,14 @@ export default function InlinePromptsView() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto bg-presentation">
-      {isNew ? (
-        <CreatePromptForm onSuccess={handleCreateSuccess} />
-      ) : (
-        <PromptForm promptId={promptId} />
-      )}
-    </div>
+    <PromptGroupsProvider>
+      <div className="flex h-full w-full flex-col overflow-y-auto bg-presentation">
+        {isNew ? (
+          <CreatePromptForm onSuccess={handleCreateSuccess} />
+        ) : (
+          <PromptForm promptId={promptId} />
+        )}
+      </div>
+    </PromptGroupsProvider>
   );
 }

@@ -1,24 +1,27 @@
 import React from 'react';
 import { RecoilRoot } from 'recoil';
 import { renderHook } from '@testing-library/react';
-import { PermissionTypes, Permissions } from 'librechat-data-provider';
-import type { TUser } from 'librechat-data-provider';
+import { LocalStorageKeys } from 'librechat-data-provider';
+import type { TStartupConfig, TUser } from 'librechat-data-provider';
+import { cleanupTimestampedStorage } from '~/utils/timestamps';
+import useSpeechSettingsInit from '../useSpeechSettingsInit';
 
 type CloudFrontRetryOptions = { getAuthorizationHeader: () => string | undefined };
 
-const mockUseHasAccess = jest.fn();
 const mockUseMCPServersQuery = jest.fn();
 const mockUseMCPToolsQuery = jest.fn();
+const mockDisposeImageRetry = jest.fn();
 const mockInstallCloudFrontImageRetry = jest.fn(
-  (_startupConfig: unknown, _options: CloudFrontRetryOptions): (() => void) =>
-    () =>
-      undefined,
+  (_startupConfig: TStartupConfig | undefined, _options: CloudFrontRetryOptions) =>
+    mockDisposeImageRetry,
 );
 const mockGetTokenHeader = jest.fn();
 
 jest.mock('@librechat/client', () => ({
-  installCloudFrontImageRetry: (startupConfig: unknown, options: CloudFrontRetryOptions) =>
-    mockInstallCloudFrontImageRetry(startupConfig, options),
+  installCloudFrontImageRetry: (
+    startupConfig: TStartupConfig | undefined,
+    options: CloudFrontRetryOptions,
+  ) => mockInstallCloudFrontImageRetry(startupConfig, options),
 }));
 
 jest.mock('librechat-data-provider', () => {
@@ -29,13 +32,9 @@ jest.mock('librechat-data-provider', () => {
   };
 });
 
-jest.mock('~/hooks', () => ({
-  useHasAccess: (args: unknown) => mockUseHasAccess(args),
-}));
-
 jest.mock('~/data-provider', () => ({
-  useMCPServersQuery: (config: unknown) => mockUseMCPServersQuery(config),
-  useMCPToolsQuery: (config: unknown) => mockUseMCPToolsQuery(config),
+  useMCPServersQuery: (...args: object[]) => mockUseMCPServersQuery(...args),
+  useMCPToolsQuery: (...args: object[]) => mockUseMCPToolsQuery(...args),
 }));
 
 jest.mock('../useSpeechSettingsInit', () => ({
@@ -71,80 +70,25 @@ const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <RecoilRoot>{children}</RecoilRoot>
 );
 
-describe('useAppStartup — MCP permission gating', () => {
-  beforeEach(() => {
-    mockInstallCloudFrontImageRetry.mockClear();
-    mockUseMCPServersQuery.mockReturnValue({ data: undefined, isLoading: false });
-    mockUseMCPToolsQuery.mockReturnValue({ data: undefined, isLoading: false });
+describe('useAppStartup', () => {
+  it.each([mockUser, undefined])('does not prefetch MCP for user %p', (user) => {
+    renderHook(() => useAppStartup({ user }), { wrapper });
+
+    expect(mockUseMCPServersQuery).not.toHaveBeenCalled();
+    expect(mockUseMCPToolsQuery).not.toHaveBeenCalled();
+    expect(useSpeechSettingsInit).toHaveBeenCalledWith(!!user);
   });
 
-  it('checks the MCP_SERVERS.USE permission via useHasAccess', () => {
-    mockUseHasAccess.mockReturnValue(false);
+  it('preserves title initialization and storage cleanup', () => {
+    const startupConfig = { appTitle: 'Chat' } as TStartupConfig;
+    renderHook(() => useAppStartup({ startupConfig, user: mockUser }), { wrapper });
 
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: mockUser }), { wrapper });
-
-    expect(mockUseHasAccess).toHaveBeenCalledWith({
-      permissionType: PermissionTypes.MCP_SERVERS,
-      permission: Permissions.USE,
-    });
-  });
-
-  it('suppresses all MCP queries when user lacks MCP_SERVERS.USE', () => {
-    mockUseHasAccess.mockReturnValue(false);
-
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: mockUser }), { wrapper });
-
-    expect(mockUseMCPServersQuery).toHaveBeenCalledWith({ enabled: false });
-    expect(mockUseMCPToolsQuery).toHaveBeenCalledWith({ enabled: false });
-  });
-
-  it('enables servers query and tools query when permission granted, servers loaded, and user present', () => {
-    mockUseHasAccess.mockReturnValue(true);
-    mockUseMCPServersQuery.mockReturnValue({
-      data: { 'test-server': { url: 'http://test' } },
-      isLoading: false,
-    });
-
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: mockUser }), { wrapper });
-
-    expect(mockUseMCPServersQuery).toHaveBeenCalledWith({ enabled: true });
-    expect(mockUseMCPToolsQuery).toHaveBeenCalledWith({ enabled: true });
-  });
-
-  it('suppresses tools query when permission granted but user prop is undefined', () => {
-    mockUseHasAccess.mockReturnValue(true);
-    mockUseMCPServersQuery.mockReturnValue({
-      data: { 'test-server': { url: 'http://test' } },
-      isLoading: false,
-    });
-
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: undefined }), { wrapper });
-
-    expect(mockUseMCPServersQuery).toHaveBeenCalledWith({ enabled: true });
-    expect(mockUseMCPToolsQuery).toHaveBeenCalledWith({ enabled: false });
-  });
-
-  it('suppresses tools query when permission granted but no servers loaded', () => {
-    mockUseHasAccess.mockReturnValue(true);
-    mockUseMCPServersQuery.mockReturnValue({ data: {}, isLoading: false });
-
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: mockUser }), { wrapper });
-
-    expect(mockUseMCPServersQuery).toHaveBeenCalledWith({ enabled: true });
-    expect(mockUseMCPToolsQuery).toHaveBeenCalledWith({ enabled: false });
-  });
-
-  it('suppresses tools query while servers are still loading', () => {
-    mockUseHasAccess.mockReturnValue(true);
-    mockUseMCPServersQuery.mockReturnValue({ data: undefined, isLoading: true });
-
-    renderHook(() => useAppStartup({ startupConfig: undefined, user: mockUser }), { wrapper });
-
-    expect(mockUseMCPToolsQuery).toHaveBeenCalledWith({ enabled: false });
+    expect(document.title).toBe('Chat');
+    expect(localStorage.getItem(LocalStorageKeys.APP_TITLE)).toBe('Chat');
+    expect(cleanupTimestampedStorage).toHaveBeenCalledTimes(1);
   });
 
   it('installs CloudFront image retry from startup config', () => {
-    mockUseHasAccess.mockReturnValue(false);
     const startupConfig = {
       cloudFront: {
         cookieRefresh: {
@@ -152,9 +96,11 @@ describe('useAppStartup — MCP permission gating', () => {
           domain: 'https://cdn.example.com',
         },
       },
-    } as never;
+    } as TStartupConfig;
 
-    renderHook(() => useAppStartup({ startupConfig, user: mockUser }), { wrapper });
+    const { unmount } = renderHook(() => useAppStartup({ startupConfig, user: mockUser }), {
+      wrapper,
+    });
 
     expect(mockInstallCloudFrontImageRetry).toHaveBeenCalledWith(startupConfig, {
       getAuthorizationHeader: expect.any(Function),
@@ -164,5 +110,7 @@ describe('useAppStartup — MCP permission gating', () => {
 
     expect(options.getAuthorizationHeader()).toBe('Bearer app-token');
     expect(mockGetTokenHeader).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(mockDisposeImageRetry).toHaveBeenCalledTimes(1);
   });
 });

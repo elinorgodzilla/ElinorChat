@@ -3,7 +3,6 @@ import { InfoIcon } from 'lucide-react';
 import type { CodeBarProps } from '~/common';
 import useCopyCode from '~/components/Messages/Content/useCopyCode';
 import CopyButton from '~/components/Messages/Content/CopyButton';
-import RunCode from '~/components/Messages/Content/RunCode';
 import cn from '~/utils/cn';
 
 interface FloatingCodeBarProps extends CodeBarProps {
@@ -11,7 +10,7 @@ interface FloatingCodeBarProps extends CodeBarProps {
 }
 
 const FloatingCodeBar: React.FC<FloatingCodeBarProps> = React.memo(
-  ({ lang, codeRef, blockIndex, plugin = null, allowExecution = true, isVisible }) => {
+  ({ codeRef, plugin = null, isVisible }) => {
     const { isCopied, buttonRef, handleCopy } = useCopyCode(codeRef);
 
     return (
@@ -25,9 +24,6 @@ const FloatingCodeBar: React.FC<FloatingCodeBarProps> = React.memo(
           <InfoIcon className="flex h-4 w-4 gap-2 text-text-secondary" />
         ) : (
           <>
-            {allowExecution === true && (
-              <RunCode lang={lang} codeRef={codeRef} blockIndex={blockIndex} iconOnly />
-            )}
             <CopyButton
               ref={buttonRef}
               isCopied={isCopied}

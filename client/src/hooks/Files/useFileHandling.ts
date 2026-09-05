@@ -3,11 +3,10 @@ import { v4 } from 'uuid';
 import debounce from 'lodash/debounce';
 import { useToastContext } from '@librechat/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRecoilValue, useSetRecoilState } from 'recoil';
+import { useRecoilValue } from 'recoil';
 import {
   QueryKeys,
   Constants,
-  EToolResources,
   mergeFileConfig,
   isAssistantsEndpoint,
   getEndpointFileConfig,
@@ -21,7 +20,7 @@ import { useGetFileConfig, useUploadFileMutation } from '~/data-provider';
 import useLocalize, { TranslationKeys } from '~/hooks/useLocalize';
 import { useDelayedUploadToast } from './useDelayedUploadToast';
 import { useChatContext } from '~/Providers/ChatContext';
-import store, { ephemeralAgentByConvoId } from '~/store';
+import store from '~/store';
 import useClientResize from './useClientResize';
 import useUpdateFiles from './useUpdateFiles';
 
@@ -53,9 +52,6 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
   const { startUploadTimer, clearUploadTimer } = useDelayedUploadToast();
   const { files, setFiles, conversation } = fileState;
   const setFilesLoading = fileState.setFilesLoading ?? noop;
-  const setEphemeralAgent = useSetRecoilState(
-    ephemeralAgentByConvoId(conversation?.conversationId ?? Constants.NEW_CONVO),
-  );
   const isTemporary = useRecoilValue(store.isTemporary);
   const setError = (error: string) => setErrors((prevErrors) => [...prevErrors, error]);
   const { addFile, replaceFile, updateFileById, deleteFileById } = useUpdateFiles(
@@ -161,13 +157,6 @@ const useFileHandlingCore = (params: UseFileHandling | undefined, fileState: Fil
         const error = _error as TError | undefined;
         console.log('upload error', error);
         const file_id = body.get('file_id');
-        const tool_resource = body.get('tool_resource');
-        if (tool_resource === EToolResources.execute_code) {
-          setEphemeralAgent((prev) => ({
-            ...prev,
-            [EToolResources.execute_code]: false,
-          }));
-        }
         clearUploadTimer(file_id as string);
         deleteFileById(file_id as string);
 

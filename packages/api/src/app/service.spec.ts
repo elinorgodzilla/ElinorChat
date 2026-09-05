@@ -1,4 +1,6 @@
 import type { AppConfig } from '@librechat/data-schemas';
+import { AgentCapabilities, FileSources } from 'librechat-data-provider';
+import { applyLeanAppConfig } from './lean';
 import {
   createAppConfigService,
   _resetOverrideStrictCache,
@@ -534,6 +536,154 @@ describe('createAppConfigService', () => {
       // Should not throw — logs warning and relies on TTL expiry
       await expect(clearOverrideCache()).resolves.toBeUndefined();
     });
+  });
+});
+
+describe('lean service normalization', () => {
+  const base: AppConfig = {
+    config: {},
+    fileStrategy: FileSources.local,
+    imageOutputType: 'png',
+    endpoints: {
+      agents: { capabilities: Object.values(AgentCapabilities), disableBuilder: false },
+    },
+    interfaceConfig: { skills: true, agents: true, webSearch: false },
+    memory: { disabled: false },
+    mcpConfig: { stale: { command: 'unused-command' } },
+  };
+
+  function leanDeps() {
+    return createDeps({
+      loadBaseConfig: jest.fn().mockResolvedValue(base),
+      normalizeConfig: applyLeanAppConfig,
+    });
+  }
+
+  it('normalizes startup baseOnly and caches restricted base values', async () => {
+    const deps = leanDeps();
+    const original = structuredClone(base);
+    const { getAppConfig } = createAppConfigService(deps);
+    const result = await getAppConfig({ baseOnly: true });
+    expect(result).toEqual(applyLeanAppConfig(base));
+    expect(deps._cache._store.get('app_config:_BASE_')).toEqual(result);
+    expect(deps.getApplicableConfigs).not.toHaveBeenCalled();
+    expect(base).toEqual(original);
+  });
+
+  it.each(['_BASE_', '_OVERRIDE_:__default__:ADMIN:uid1'])(
+    'restricts stale %s cache entries without mutating them',
+    async (key) => {
+      const deps = leanDeps();
+      const original = structuredClone(base);
+      await deps._cache.set(key, base);
+      const { getAppConfig } = createAppConfigService(deps);
+      const result = await getAppConfig({
+        role: 'ADMIN',
+        userId: 'uid1',
+        baseOnly: key === '_BASE_',
+      });
+      expect(result).toEqual(applyLeanAppConfig(base));
+      expect(deps.getApplicableConfigs).not.toHaveBeenCalled();
+      expect(base).toEqual(original);
+    },
+  );
+
+  it('restricts real principal merges and cached results while retaining provider/search overrides', async () => {
+    const deps = leanDeps();
+    const overrides = [
+      {
+        priority: 10,
+        isActive: true,
+        overrides: { endpoints: { agents: { capabilities: [AgentCapabilities.skills] } } },
+      },
+      {
+        priority: 100,
+        isActive: true,
+        overrides: {
+          endpoints: {
+            agents: { capabilities: Object.values(AgentCapabilities), disableBuilder: false },
+            openAI: {
+              baseURL: 'https://override.example/v1',
+              headers: { 'X-Key': '${OVERRIDE_KEY}' },
+            },
+          },
+          memory: { disabled: false },
+          mcpServers: { restored: { command: 'unused-command' } },
+          skillSync: { github: { enabled: true } },
+          webSearch: { serperApiKey: '${OVERRIDE_SEARCH_KEY}', safeSearch: 0 },
+        },
+      },
+    ];
+    const original = structuredClone(overrides);
+    deps.getApplicableConfigs.mockResolvedValue(overrides);
+    const { getAppConfig } = createAppConfigService(deps);
+    const options = { role: 'ADMIN', userId: 'uid1' };
+    const result = await getAppConfig(options);
+    expect(result.endpoints?.agents).toMatchObject({
+      capabilities: ['web_search'],
+      disableBuilder: true,
+    });
+    expect(result.interfaceConfig).toMatchObject({
+      agents: false,
+      skills: false,
+      webSearch: false,
+    });
+    expect(result.mcpConfig).toEqual({});
+    expect(result.memory?.disabled).toBe(true);
+    expect(result.skillSync?.github?.enabled).toBe(false);
+    expect(result.endpoints?.openAI).toEqual(overrides[1].overrides.endpoints.openAI);
+    expect(result.webSearch).toEqual(overrides[1].overrides.webSearch);
+    expect(await getAppConfig(options)).toEqual(result);
+    expect(deps.getApplicableConfigs).toHaveBeenCalledTimes(1);
+    expect(overrides).toEqual(original);
+    expect(deps._cache._store.get('app_config:_OVERRIDE_:__default__:ADMIN:uid1')).toEqual(result);
+  });
+
+  it('preserves explicit empty capability and false search overrides', async () => {
+    const deps = leanDeps();
+    deps.getApplicableConfigs.mockResolvedValue([
+      {
+        priority: 100,
+        isActive: true,
+        overrides: {
+          endpoints: { agents: { capabilities: [] } },
+          interface: { modelSelect: false },
+        },
+      },
+    ]);
+    const result = await createAppConfigService(deps).getAppConfig({ role: 'ADMIN' });
+    expect(result.endpoints?.agents?.capabilities).toEqual([]);
+    expect(result.interfaceConfig?.webSearch).toBe(false);
+    expect(result.interfaceConfig?.modelSelect).toBe(false);
+  });
+
+  it.each(['getApplicableConfigs', 'getUserPrincipals'] as const)(
+    'keeps the fallback restricted when %s fails',
+    async (method) => {
+      const deps = leanDeps();
+      deps[method].mockRejectedValue(new Error('unavailable'));
+      const result = await createAppConfigService(deps).getAppConfig({ userId: 'uid1' });
+      expect(result).toEqual(applyLeanAppConfig(base));
+    },
+  );
+
+  it('restricts the strict-mode no-principal fallback', async () => {
+    const previous = process.env.TENANT_ISOLATION_STRICT;
+    process.env.TENANT_ISOLATION_STRICT = 'true';
+    _resetOverrideStrictCache();
+    try {
+      const deps = leanDeps();
+      const result = await createAppConfigService(deps).getAppConfig();
+      expect(result).toEqual(applyLeanAppConfig(base));
+      expect(deps.getApplicableConfigs).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.TENANT_ISOLATION_STRICT;
+      } else {
+        process.env.TENANT_ISOLATION_STRICT = previous;
+      }
+      _resetOverrideStrictCache();
+    }
   });
 });
 

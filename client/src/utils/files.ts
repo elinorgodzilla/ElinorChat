@@ -14,10 +14,8 @@ import {
   excelMimeTypes,
   EToolResources,
   EModelEndpoint,
-  retrievalMimeTypes,
   isBedrockDocumentType,
   isPermissiveMimeConfig,
-  codeInterpreterMimeTypes,
   isDocumentSupportedProvider,
   fileConfig as defaultFileConfig,
 } from 'librechat-data-provider';
@@ -330,12 +328,6 @@ export type UploadOptionContext = {
   endpoint?: string | null;
   endpointType?: string | null;
   useResponsesApi?: boolean;
-  fileSearchEnabled: boolean;
-  codeEnabled: boolean;
-  contextEnabled: boolean;
-  fileSearchAllowedByAgent: boolean;
-  codeAllowedByAgent: boolean;
-  fileConfig: FileConfig | null;
   endpointSupportedMimeTypes?: RegExp[];
 };
 
@@ -379,23 +371,8 @@ const isProviderAttachType = (type: string, ctx: UploadOptionContext): boolean =
   return type.startsWith('image/');
 };
 
-const isContextType = (type: string, fileConfig: FileConfig | null): boolean =>
-  checkType(type, [
-    ...(fileConfig?.text?.supportedMimeTypes || []),
-    ...(fileConfig?.ocr?.supportedMimeTypes || []),
-    ...(fileConfig?.stt?.supportedMimeTypes || []),
-  ]);
-
-/**
- * Upload destinations a file set can be routed to, given the active endpoint and agent
- * capabilities. `undefined` is direct provider attachment; the rest are tool resources.
- * Each option requires every file to be valid for it, so the caller can decide between
- * auto-routing (one option), prompting (multiple), or rejecting (none).
- */
-export const getViableUploadOptions = (
-  fileList: File[],
-  ctx: UploadOptionContext,
-): (EToolResources | undefined)[] => {
+/** `undefined` denotes direct attachment; unsupported sets have no destination. */
+export const getViableUploadOptions = (fileList: File[], ctx: UploadOptionContext): undefined[] => {
   if (fileList.length === 0) {
     return [];
   }
@@ -406,28 +383,13 @@ export const getViableUploadOptions = (
   const every = (predicate: (type: string) => boolean) =>
     types.every((type) => predicate(type as string));
 
-  const options: (EToolResources | undefined)[] = [];
-  if (every((type) => isProviderAttachType(type, ctx))) {
-    options.push(undefined);
-  }
-  if (
-    ctx.fileSearchEnabled &&
-    ctx.fileSearchAllowedByAgent &&
-    every((type) => !type.startsWith('image/') && checkType(type, retrievalMimeTypes))
-  ) {
-    options.push(EToolResources.file_search);
-  }
-  if (
-    ctx.codeEnabled &&
-    ctx.codeAllowedByAgent &&
-    every((type) => checkType(type, codeInterpreterMimeTypes))
-  ) {
-    options.push(EToolResources.execute_code);
-  }
-  if (ctx.contextEnabled && every((type) => isContextType(type, ctx.fileConfig))) {
-    options.push(EToolResources.context);
-  }
-  return options;
+  return every(
+    (type) =>
+      isProviderAttachType(type, ctx) &&
+      (ctx.endpointSupportedMimeTypes == null || checkType(type, ctx.endpointSupportedMimeTypes)),
+  )
+    ? [undefined]
+    : [];
 };
 
 export function sortPagesByRelevance(

@@ -3,6 +3,7 @@ import { useRecoilValue } from 'recoil';
 import { Button } from '@librechat/client';
 import { TriangleAlert } from 'lucide-react';
 import {
+  Tools,
   Constants,
   dataService,
   actionDelimiter,
@@ -11,7 +12,6 @@ import {
 import type { TAttachment } from 'librechat-data-provider';
 import { useLocalize, useProgress, useExpandCollapse } from '~/hooks';
 import { ToolIcon, getToolIconType, isError } from './ToolOutput';
-import { useMCPIconMap } from '~/hooks/MCP';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
 import ProgressText from './ProgressText';
@@ -106,8 +106,6 @@ export default function ToolCall({
   }, [name, parsedAuthUrl]);
 
   const toolIconType = useMemo(() => getToolIconType(name), [name]);
-  const mcpIconMap = useMCPIconMap();
-  const mcpIconUrl = isMCPToolCall ? mcpIconMap.get(mcpServerName) : undefined;
 
   const actionId = useMemo(() => {
     if (isMCPToolCall || !parsedAuthUrl) {
@@ -119,20 +117,18 @@ export default function ToolCall({
   }, [parsedAuthUrl, isMCPToolCall]);
 
   const handleOAuthClick = useCallback(async () => {
-    if (!auth) {
+    if (!auth || isMCPToolCall) {
       return;
     }
     try {
-      if (isMCPToolCall && mcpServerName) {
-        await dataService.bindMCPOAuth(mcpServerName);
-      } else if (actionId) {
+      if (actionId) {
         await dataService.bindActionOAuth(actionId);
       }
     } catch (e) {
       logger.error('Failed to bind OAuth CSRF cookie', e);
     }
     window.open(auth, '_blank', 'noopener,noreferrer');
-  }, [auth, isMCPToolCall, mcpServerName, actionId]);
+  }, [auth, isMCPToolCall, actionId]);
 
   const hasError = typeof output === 'string' && isError(output);
   const cancelled = !isSubmitting && initialProgress < 1 && !hasError;
@@ -154,13 +150,16 @@ export default function ToolCall({
   }, [_args]) as string | undefined;
 
   const hasInfo = useMemo(
-    () => (args?.length ?? 0) > 0 || (output?.length ?? 0) > 0,
-    [args, output],
+    () =>
+      (args?.length ?? 0) > 0 ||
+      (output?.length ?? 0) > 0 ||
+      attachments?.some((attachment) => (attachment[Tools.ui_resources]?.length ?? 0) > 0),
+    [args, output, attachments],
   );
 
   const authDomain = useMemo(() => {
-    return parsedAuthUrl?.hostname ?? '';
-  }, [parsedAuthUrl]);
+    return isMCPToolCall ? '' : (parsedAuthUrl?.hostname ?? '');
+  }, [parsedAuthUrl, isMCPToolCall]);
 
   const progress = useProgress(initialProgress);
   const showCancelled = cancelled || (errorState && !output);
@@ -232,7 +231,6 @@ export default function ToolCall({
           icon={
             <ToolIcon
               type={toolIconType}
-              iconUrl={mcpIconUrl}
               isAnimating={progress < 1 && !showCancelled && !errorState}
             />
           }
@@ -250,7 +248,7 @@ export default function ToolCall({
           )}
         </div>
       </div>
-      {auth != null && auth && progress < 1 && !showCancelled && (
+      {!isMCPToolCall && auth != null && auth && progress < 1 && !showCancelled && (
         <div className="flex w-full flex-col gap-2.5">
           <div className="mb-1 mt-2">
             <Button

@@ -22,7 +22,6 @@ import { cn, getResponseStatus, selectActiveBranchTail } from '~/utils';
 import { ShareMessagesProvider } from './ShareMessagesProvider';
 import { useForkSharedConvoMutation } from '~/data-provider';
 import { useGetSharedStartupConfig } from '~/data-provider';
-import { ShareArtifactsContainer } from './ShareArtifacts';
 import { useLocalize, useDocumentTitle } from '~/hooks';
 import { ShareContext } from '~/Providers';
 import MessagesView from './MessagesView';
@@ -204,22 +203,11 @@ function SharedView() {
     </div>
   );
 
-  const artifactsContainer =
-    data && data.messages ? (
-      <ShareArtifactsContainer
-        messages={data.messages}
-        conversationId={data.conversationId}
-        mainContent={mainContent}
-      />
-    ) : (
-      mainContent
-    );
-
   return (
     <ShareContext.Provider value={{ isSharedConvo: true, shareId }}>
       <div className="relative flex h-screen w-full overflow-hidden dark:bg-surface-secondary">
         <main className="relative flex w-full grow overflow-hidden dark:bg-surface-secondary">
-          {artifactsContainer}
+          {mainContent}
         </main>
       </div>
     </ShareContext.Provider>

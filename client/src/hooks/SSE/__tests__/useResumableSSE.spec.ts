@@ -4,6 +4,7 @@ import {
   LocalStorageKeys,
   QueryKeys,
   StepEvents,
+  createPayload,
   request,
 } from 'librechat-data-provider';
 import type { TMessage, TSubmission } from 'librechat-data-provider';
@@ -289,6 +290,31 @@ describe('useResumableSSE', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it.each([true, false])('projects stale submissions to search-only (%s)', async (web_search) => {
+    const submission: TSubmission = {
+      ...buildSubmission(),
+      ephemeralAgent: {
+        web_search,
+        execute_code: true,
+        file_search: true,
+        artifacts: 'default',
+        mcp: ['stale-server'],
+        skills: true,
+      },
+      manualSkills: ['stale-skill'],
+    };
+    const chatHelpers = buildChatHelpers();
+    const { unmount } = renderHook(() => useResumableSSE(submission, chatHelpers));
+    await flushMicrotasks();
+    expect(createPayload).toHaveBeenCalledWith({
+      ...submission,
+      ephemeralAgent: { web_search },
+      manualSkills: undefined,
+    });
+    expect(submission.ephemeralAgent?.execute_code).toBe(true);
+    unmount();
   });
 
   const seedDraft = (conversationId: string) => {

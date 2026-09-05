@@ -25,7 +25,6 @@ export type CodeBarProps = {
   error?: boolean;
   plugin?: boolean;
   blockIndex?: number;
-  allowExecution?: boolean;
   codeRef: RefObject<HTMLElement>;
 };
 

@@ -27,13 +27,13 @@ import {
 } from '~/data-provider';
 import { useHasAccess, useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
 import { NotificationSeverity } from '~/common';
-import { useChatContext } from '~/Providers';
 import ProjectButton from './ProjectButton';
 import DeleteButton from './DeleteButton';
 import ShareButton from './ShareButton';
 import { cn } from '~/utils';
 
 function ConvoOptions({
+  index = 0,
   conversationId,
   chatProjectId,
   title,
@@ -45,6 +45,7 @@ function ConvoOptions({
   isActiveConvo,
   isShiftHeld = false,
 }: {
+  index?: number;
   conversationId: string | null;
   chatProjectId?: string | null;
   title: string | null;
@@ -58,7 +59,6 @@ function ConvoOptions({
 }) {
   const localize = useLocalize();
   const queryClient = useQueryClient();
-  const { index } = useChatContext();
   const { data: startupConfig } = useGetStartupConfig();
   const { navigateToConvo } = useNavigateToConvo(index);
   const { showToast } = useToastContext();
@@ -475,6 +475,7 @@ function ConvoOptions({
 
 export default memo(ConvoOptions, (prevProps, nextProps) => {
   return (
+    prevProps.index === nextProps.index &&
     prevProps.conversationId === nextProps.conversationId &&
     prevProps.title === nextProps.title &&
     prevProps.chatProjectId === nextProps.chatProjectId &&

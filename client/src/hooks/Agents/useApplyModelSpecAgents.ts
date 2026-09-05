@@ -13,7 +13,7 @@ import { getModelSpec, applyModelSpecEphemeralAgent } from '~/utils';
  * to null on context transitions (leaving a spec, or moving to a different
  * conversation key) so BadgeRowContext refills values from localStorage — both
  * transitions re-trigger its init effect. In-place switches (same conversation,
- * non-spec → non-spec) keep the ephemeral agent state (e.g. MCP selections),
+ * non-spec → non-spec) keep the search preference,
  * since no refill would follow the reset.
  */
 export function useApplyModelSpecEffects() {
@@ -97,17 +97,8 @@ export function useApplyAgentTemplate() {
       }
 
       const mergedAgent = {
-        ...ephemeralAgent,
-        mcp: [...(ephemeralAgent?.mcp ?? []), ...(modelSpec.mcpServers ?? [])],
         web_search: ephemeralAgent?.web_search ?? modelSpec.webSearch ?? false,
-        file_search: ephemeralAgent?.file_search ?? modelSpec.fileSearch ?? false,
-        execute_code: ephemeralAgent?.execute_code ?? modelSpec.executeCode ?? false,
-        artifacts:
-          ephemeralAgent?.artifacts ??
-          (modelSpec.artifacts === true ? 'default' : modelSpec.artifacts || ''),
       };
-
-      mergedAgent.mcp = [...new Set(mergedAgent.mcp)];
 
       applyAgentTemplate(targetId, sourceId, mergedAgent);
     },

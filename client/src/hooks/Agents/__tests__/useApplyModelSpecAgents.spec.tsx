@@ -42,7 +42,7 @@ const useHarness = (conversationId: string) => {
 describe('useApplyModelSpecEffects', () => {
   it('preserves an existing conversation ephemeral agent on an in-place model switch', () => {
     const conversationId = 'convo-123';
-    const agent: TEphemeralAgent = { mcp: ['clickhouse'] };
+    const agent: TEphemeralAgent = { web_search: false };
     const { result } = renderHook(() => useHarness(conversationId), { wrapper: Wrapper });
 
     act(() => {
@@ -64,7 +64,7 @@ describe('useApplyModelSpecEffects', () => {
   });
 
   it('preserves a new conversation ephemeral agent on an in-place model switch', () => {
-    const agent: TEphemeralAgent = { mcp: ['clickhouse'] };
+    const agent: TEphemeralAgent = { web_search: true };
     const { result } = renderHook(() => useHarness(NEW_CONVO), { wrapper: Wrapper });
 
     act(() => {
@@ -88,7 +88,7 @@ describe('useApplyModelSpecEffects', () => {
     const { result } = renderHook(() => useHarness(NEW_CONVO), { wrapper: Wrapper });
 
     act(() => {
-      result.current.updateEphemeralAgent(NEW_CONVO, { mcp: ['clickhouse'] });
+      result.current.updateEphemeralAgent(NEW_CONVO, { web_search: true });
     });
 
     act(() => {
@@ -108,7 +108,7 @@ describe('useApplyModelSpecEffects', () => {
     const { result } = renderHook(() => useHarness(NEW_CONVO), { wrapper: Wrapper });
 
     act(() => {
-      result.current.updateEphemeralAgent(NEW_CONVO, { mcp: ['clickhouse'] });
+      result.current.updateEphemeralAgent(NEW_CONVO, { web_search: true });
     });
 
     act(() => {
@@ -125,7 +125,7 @@ describe('useApplyModelSpecEffects', () => {
   });
 
   it('leaves the ephemeral agent untouched when no specs are configured', () => {
-    const agent: TEphemeralAgent = { mcp: ['clickhouse'] };
+    const agent: TEphemeralAgent = { web_search: false };
     const { result } = renderHook(() => useHarness(NEW_CONVO), { wrapper: Wrapper });
 
     act(() => {

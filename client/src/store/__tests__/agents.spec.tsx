@@ -2,7 +2,7 @@ import React from 'react';
 import { RecoilRoot, useRecoilValue } from 'recoil';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
-import { ephemeralAgentByConvoId, useApplyNewAgentTemplate } from '../agents';
+import { ephemeralAgentByConvoId, useApplyNewAgentTemplate, useGetEphemeralAgent } from '../agents';
 
 jest.mock('~/utils', () => ({
   logger: {
@@ -42,7 +42,28 @@ describe('useApplyNewAgentTemplate', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.ephemeralAgent).toEqual(agent);
+      expect(result.current.ephemeralAgent).toEqual({ web_search: true });
     });
+  });
+
+  it.each([true, false])('projects legacy atom state at the getter boundary (%s)', (web_search) => {
+    const { result } = renderHook(() => useGetEphemeralAgent(), {
+      wrapper: ({ children }) => (
+        <RecoilRoot
+          initializeState={({ set }) =>
+            set(ephemeralAgentByConvoId('legacy'), {
+              web_search,
+              execute_code: true,
+              artifacts: 'default',
+              mcp: ['stale'],
+            })
+          }
+        >
+          {children}
+        </RecoilRoot>
+      ),
+    });
+    expect(result.current('legacy')).toEqual({ web_search });
+    expect(result.current('missing')).toBeNull();
   });
 });

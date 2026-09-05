@@ -297,47 +297,16 @@ export function applyModelSpecEphemeralAgent({
   }
   const key = (convoId ?? Constants.NEW_CONVO) || Constants.NEW_CONVO;
   const agent: t.TEphemeralAgent = {
-    mcp: modelSpec.mcpServers ?? [],
     web_search: modelSpec.webSearch ?? false,
-    file_search: modelSpec.fileSearch ?? false,
-    execute_code: modelSpec.executeCode ?? false,
-    memory: modelSpec.memory ?? false,
-    artifacts: modelSpec.artifacts === true ? 'default' : modelSpec.artifacts || '',
   };
 
   // For existing conversations, layer per-conversation localStorage overrides
   // on top of spec defaults so user modifications persist across navigation.
   // If localStorage is empty (e.g., cleared), spec values stand alone.
   if (key !== Constants.NEW_CONVO) {
-    const toolStorageMap: Array<[keyof t.TEphemeralAgent, string]> = [
-      ['execute_code', LocalStorageKeys.LAST_CODE_TOGGLE_],
-      ['web_search', LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_],
-      ['file_search', LocalStorageKeys.LAST_FILE_SEARCH_TOGGLE_],
-      ['artifacts', LocalStorageKeys.LAST_ARTIFACTS_TOGGLE_],
-      ['memory', LocalStorageKeys.LAST_MEMORY_TOGGLE_],
-    ];
-
-    for (const [toolKey, storagePrefix] of toolStorageMap) {
-      const raw = getTimestampedValue(`${storagePrefix}${key}`);
-      if (raw !== null) {
-        try {
-          agent[toolKey] = JSON.parse(raw) as never;
-        } catch {
-          // ignore parse errors
-        }
-      }
-    }
-
-    const mcpRaw = localStorage.getItem(`${LocalStorageKeys.LAST_MCP_}${key}`);
-    if (mcpRaw !== null) {
-      try {
-        const parsed = JSON.parse(mcpRaw);
-        if (Array.isArray(parsed)) {
-          agent.mcp = parsed;
-        }
-      } catch {
-        // ignore parse errors
-      }
+    const raw = getTimestampedValue(`${LocalStorageKeys.LAST_WEB_SEARCH_TOGGLE_}${key}`);
+    if (raw === 'true' || raw === 'false') {
+      agent.web_search = raw === 'true';
     }
   }
 

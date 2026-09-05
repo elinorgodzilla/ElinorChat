@@ -1,12 +1,9 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Tools } from 'librechat-data-provider';
-import { UIResourceRenderer } from '@mcp-ui/client';
 import type { TAttachment, UIResource } from 'librechat-data-provider';
-import { useOptionalMessagesOperations } from '~/Providers';
 import { useLocalize, useExpandCollapse } from '~/hooks';
-import UIResourceCarousel from './UIResourceCarousel';
-import { handleUIAction, cn } from '~/utils';
+import { cn } from '~/utils';
 import { OutputRenderer } from './ToolOutput';
 
 function isSimpleObject(obj: unknown): obj is Record<string, string | number | boolean | null> {
@@ -102,7 +99,6 @@ export default function ToolCallInfo({
   attachments?: TAttachment[];
 }) {
   const localize = useLocalize();
-  const { ask } = useOptionalMessagesOperations();
   const [showParams, setShowParams] = useState(false);
   const { style: paramsExpandStyle, ref: paramsExpandRef } = useExpandCollapse(showParams);
 
@@ -124,9 +120,7 @@ export default function ToolCallInfo({
   const uiResources: UIResource[] =
     attachments
       ?.filter((attachment) => attachment.type === Tools.ui_resources)
-      .flatMap((attachment) => {
-        return attachment[Tools.ui_resources] as UIResource[];
-      }) ?? [];
+      .flatMap((attachment) => attachment[Tools.ui_resources] ?? []) ?? [];
 
   return (
     <div className="w-full px-3 py-3.5">
@@ -162,16 +156,14 @@ export default function ToolCallInfo({
       {uiResources.length > 0 && (
         <>
           {(hasParams || output) && <div className="my-2 border-t border-border-light" />}
-          {uiResources.length > 1 && <UIResourceCarousel uiResources={uiResources} />}
-          {uiResources.length === 1 && (
-            <UIResourceRenderer
-              resource={uiResources[0]}
-              onUIAction={async (result) => handleUIAction(result, ask)}
-              htmlProps={{
-                autoResizeIframe: { width: true, height: true },
-              }}
-            />
-          )}
+          {uiResources.map((resource, index) => (
+            <pre
+              key={`${resource.uri}-${index}`}
+              className="whitespace-pre-wrap break-words text-xs"
+            >
+              {resource.text || resource.uri}
+            </pre>
+          ))}
         </>
       )}
     </div>

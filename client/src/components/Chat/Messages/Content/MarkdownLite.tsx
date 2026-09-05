@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import type { PluggableList } from 'unified';
 import { code, codeNoExecution, a, p, img, table } from './MarkdownComponents';
-import { CodeBlockProvider, ArtifactProvider } from '~/Providers';
+import { CodeBlockProvider } from '~/Providers';
 import MarkdownErrorBoundary from './MarkdownErrorBoundary';
 import { langSubset, remarkApproxTilde } from '~/utils';
 
@@ -27,34 +27,32 @@ const MarkdownLite = memo(
 
     return (
       <MarkdownErrorBoundary content={content} codeExecution={codeExecution}>
-        <ArtifactProvider>
-          <CodeBlockProvider>
-            <ReactMarkdown
-              remarkPlugins={[
-                remarkApproxTilde,
-                /** @ts-ignore */
-                supersub,
-                remarkGfm,
-                [remarkMath, { singleDollarTextMath: false }],
-              ]}
+        <CodeBlockProvider>
+          <ReactMarkdown
+            remarkPlugins={[
+              remarkApproxTilde,
               /** @ts-ignore */
-              rehypePlugins={rehypePlugins}
-              components={
-                {
-                  code: codeExecution ? code : codeNoExecution,
-                  a,
-                  p,
-                  img,
-                  table,
-                } as {
-                  [nodeType: string]: React.ElementType;
-                }
+              supersub,
+              remarkGfm,
+              [remarkMath, { singleDollarTextMath: false }],
+            ]}
+            /** @ts-ignore */
+            rehypePlugins={rehypePlugins}
+            components={
+              {
+                code: codeExecution ? code : codeNoExecution,
+                a,
+                p,
+                img,
+                table,
+              } as {
+                [nodeType: string]: React.ElementType;
               }
-            >
-              {content}
-            </ReactMarkdown>
-          </CodeBlockProvider>
-        </ArtifactProvider>
+            }
+          >
+            {content}
+          </ReactMarkdown>
+        </CodeBlockProvider>
       </MarkdownErrorBoundary>
     );
   },
