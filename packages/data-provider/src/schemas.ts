@@ -1243,6 +1243,7 @@ export const googleBaseSchema = tConversationSchema.pick({
   thinkingLevel: true,
   web_search: true,
   url_context: true,
+  disableStreaming: true,
   fileTokenLimit: true,
   iconURL: true,
   greeting: true,

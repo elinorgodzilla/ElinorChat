@@ -549,6 +549,22 @@ describe('googleSettings', () => {
       });
       expect(result.chatProjectId).toBe('project-1');
     });
+
+    it.each([true, false])(
+      'preserves the Gemini disableStreaming=%s override',
+      (disableStreaming) => {
+        const result = compactGoogleSchema.parse({
+          model: 'gemini-2.5-pro',
+          disableStreaming,
+        });
+        expect(result.disableStreaming).toBe(disableStreaming);
+      },
+    );
+
+    it('leaves the Gemini disable-streaming override absent when unset', () => {
+      const result = compactGoogleSchema.parse({ model: 'gemini-2.5-pro' });
+      expect(result).not.toHaveProperty('disableStreaming');
+    });
   });
 });
 

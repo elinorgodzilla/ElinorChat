@@ -1,5 +1,5 @@
 import { EModelEndpoint } from './types';
-import { applyModelAwareDefaults, paramSettings } from './parameterSettings';
+import { applyModelAwareDefaults, paramSettings, presetSettings } from './parameterSettings';
 import type { SettingDefinition } from './generate';
 
 const googleParams = paramSettings[EModelEndpoint.google] as SettingDefinition[];
@@ -53,5 +53,15 @@ describe('applyModelAwareDefaults', () => {
     const override = { ...maxOut(modelAware), default: 2048 } as SettingDefinition;
     const final = modelAware.map((p) => (p.key === 'maxOutputTokens' ? override : p));
     expect(maxOut(final)?.default).toBe(2048);
+  });
+
+  it.each([
+    ['conversations', googleParams],
+    ['presets', presetSettings[EModelEndpoint.google]?.col2 as SettingDefinition[]],
+  ])('exposes disable streaming for Google %s', (_name, params) => {
+    expect(params.find((param) => param.key === 'disableStreaming')).toMatchObject({
+      component: 'switch',
+      default: false,
+    });
   });
 });

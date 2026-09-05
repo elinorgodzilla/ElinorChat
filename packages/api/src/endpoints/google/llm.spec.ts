@@ -115,6 +115,58 @@ describe('getGoogleConfig', () => {
 
       expect(result.llmConfig).toHaveProperty('maxOutputTokens', 4096);
     });
+
+    it.each([true, false])(
+      'should preserve disableStreaming=%s for the model constructor',
+      (disableStreaming) => {
+        const credentials = {
+          [AuthKeys.GOOGLE_API_KEY]: 'test-api-key',
+        };
+
+        const result = getGoogleConfig(credentials, {
+          modelOptions: {
+            model: 'gemini-2.5-flash',
+            disableStreaming,
+          },
+        });
+
+        expect(result.llmConfig).toHaveProperty('disableStreaming', disableStreaming);
+        expect(knownGoogleParams).toContain('disableStreaming');
+      },
+    );
+
+    it('should leave disableStreaming absent when unset', () => {
+      const result = getGoogleConfig(
+        { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' },
+        { modelOptions: { model: 'gemini-2.5-flash' } },
+      );
+
+      expect(result.llmConfig).not.toHaveProperty('disableStreaming');
+    });
+
+    it('should apply a disableStreaming default when unset', () => {
+      const result = getGoogleConfig(
+        { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' },
+        {
+          modelOptions: { model: 'gemini-2.5-flash' },
+          defaultParams: { disableStreaming: true },
+        },
+      );
+
+      expect(result.llmConfig).toHaveProperty('disableStreaming', true);
+    });
+
+    it('should preserve explicit false over a disableStreaming default', () => {
+      const result = getGoogleConfig(
+        { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' },
+        {
+          modelOptions: { model: 'gemini-2.5-flash', disableStreaming: false },
+          defaultParams: { disableStreaming: true },
+        },
+      );
+
+      expect(result.llmConfig).toHaveProperty('disableStreaming', false);
+    });
   });
 
   describe('Model-aware maxOutputTokens default', () => {

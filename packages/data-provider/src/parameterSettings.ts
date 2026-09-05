@@ -840,6 +840,7 @@ const googleConfig: SettingsConfiguration = [
   google.thinkingLevel,
   google.web_search,
   google.url_context,
+  openAIParams.disableStreaming,
   librechat.fileTokenLimit,
 ];
 
@@ -861,6 +862,7 @@ const googleCol2: SettingsConfiguration = [
   google.thinkingLevel,
   google.web_search,
   google.url_context,
+  openAIParams.disableStreaming,
   librechat.fileTokenLimit,
 ];
 
