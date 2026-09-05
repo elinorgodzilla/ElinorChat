@@ -145,20 +145,6 @@ describe('useChatFunctions ask', () => {
     expect(setSubmission).toHaveBeenCalled();
   });
 
-  it('does not forward manual skills supplied by a legacy caller', () => {
-    const { result, setSubmission } = renderAsk([]);
-    act(() => {
-      result.current.ask(
-        { text: 'Hello', conversationId: 'conversation-1' },
-        { overrideManualSkills: ['stale-skill'] },
-      );
-    });
-    const submission: TSubmission = setSubmission.mock.calls[0][0];
-    expect(submission.manualSkills).toBeUndefined();
-    expect(submission.userMessage.manualSkills).toBeUndefined();
-    expect(submission.initialResponse?.manualSkills).toBeUndefined();
-  });
-
   it('allows a new conversation before its message cache exists', () => {
     const newConversationId = Constants.NEW_CONVO as string;
     const { result, setMessages, setSubmission } = renderAsk(undefined, newConversationId);

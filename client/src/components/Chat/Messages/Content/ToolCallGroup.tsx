@@ -14,6 +14,7 @@ import { isBashProgrammaticToolCall } from './routing';
 import { ASK_USER_QUESTION } from '~/utils/approval';
 import { cn, getToolDisplayLabel } from '~/utils';
 import { StackedToolIcons } from './ToolOutput';
+import { useMCPIconMap } from '~/hooks/MCP';
 import { AttachmentGroup } from './Parts';
 import store from '~/store';
 
@@ -103,6 +104,7 @@ export default function ToolCallGroup({
   onExpansionChange,
 }: ToolCallGroupProps) {
   const localize = useLocalize();
+  const mcpIconMap = useMCPIconMap();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const cancelLayoutReconcileRef = useRef<(() => void) | null>(null);
   const count = parts.length;
@@ -288,6 +290,7 @@ export default function ToolCallGroup({
         ) : (
           <StackedToolIcons
             toolNames={iconToolNames}
+            mcpIconMap={mcpIconMap}
             maxIcons={4}
             isAnimating={!allCompleted && isSubmitting}
           />

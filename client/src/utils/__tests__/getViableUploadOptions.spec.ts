@@ -1,66 +1,147 @@
-import type { UploadOptionContext } from '../files';
-import { getViableUploadOptions } from '../files';
+import { EToolResources } from 'librechat-data-provider';
+import type { FileConfig } from 'librechat-data-provider';
+import { getViableUploadOptions, type UploadOptionContext } from '../files';
 
-const file = (type: string, name = 'file') => new File(['x'], name, { type });
-const base: UploadOptionContext = { endpoint: 'anthropic', endpointType: 'anthropic' };
-const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-describe('direct upload options', () => {
-  it('rejects empty and unknown file sets', () => {
-    expect(getViableUploadOptions([], base)).toEqual([]);
-    expect(getViableUploadOptions([file('', 'mystery.unknownext')], base)).toEqual([]);
+/** context accepts plain text + csv (text), pdf + xlsx (ocr); nothing else */
+const fileConfig = {
+  text: { supportedMimeTypes: [/^text\/(plain|csv)$/] },
+  ocr: {
+    supportedMimeTypes: [
+      /^application\/pdf$/,
+      /^application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet$/,
+    ],
+  },
+  stt: { supportedMimeTypes: [] },
+} as unknown as FileConfig;
+
+const baseCtx = (over: Partial<UploadOptionContext> = {}): UploadOptionContext => ({
+  provider: 'anthropic',
+  endpoint: 'anthropic',
+  endpointType: 'anthropic',
+  useResponsesApi: false,
+  fileSearchEnabled: true,
+  codeEnabled: true,
+  contextEnabled: true,
+  fileSearchAllowedByAgent: true,
+  codeAllowedByAgent: true,
+  fileConfig,
+  ...over,
+});
+
+const file = (type: string, name: string) => new File(['x'], name, { type });
+
+describe('getViableUploadOptions', () => {
+  it('returns empty for no files', () => {
+    expect(getViableUploadOptions([], baseCtx())).toEqual([]);
   });
 
-  it.each(['image/png', 'image/jpeg', 'application/pdf'])(
-    'attaches %s directly without tool destinations',
-    (type) => expect(getViableUploadOptions([file(type)], base)).toEqual([undefined]),
-  );
-
-  it('infers image MIME types for clipboard/drop files', () => {
-    expect(getViableUploadOptions([file('', 'photo.png')], base)).toEqual([undefined]);
+  it('returns empty when a file type cannot be inferred', () => {
+    expect(getViableUploadOptions([file('', 'mystery.unknownext')], baseCtx())).toEqual([]);
   });
 
-  it.each([xlsx, 'application/zip', 'text/plain', 'video/mp4'])(
-    'does not fall back to code, retrieval or text extraction for %s',
-    (type) => expect(getViableUploadOptions([file(type)], base)).toEqual([]),
-  );
+  describe('Anthropic (PDF/image only for provider attach)', () => {
+    it('routes a spreadsheet to code + text, not the provider', () => {
+      expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], baseCtx())).toEqual([
+        EToolResources.execute_code,
+        EToolResources.context,
+      ]);
+    });
 
-  it('rejects mixed sets when any attachment is unsupported', () => {
-    expect(getViableUploadOptions([file('image/png'), file('application/zip')], base)).toEqual([]);
+    it('offers every destination for a PDF', () => {
+      expect(getViableUploadOptions([file('application/pdf', 'doc.pdf')], baseCtx())).toEqual([
+        undefined,
+        EToolResources.file_search,
+        EToolResources.execute_code,
+        EToolResources.context,
+      ]);
+    });
+
+    it('yields a single option for a zip (code only) so it can auto-route', () => {
+      expect(getViableUploadOptions([file('application/zip', 'a.zip')], baseCtx())).toEqual([
+        EToolResources.execute_code,
+      ]);
+    });
+
+    it('attaches a PDF directly to the provider when capabilities are off', () => {
+      const ctx = baseCtx({ fileSearchEnabled: false, codeEnabled: false, contextEnabled: false });
+      expect(getViableUploadOptions([file('application/pdf', 'doc.pdf')], ctx)).toEqual([
+        undefined,
+      ]);
+    });
+
+    it('returns nothing for a spreadsheet when no capabilities are enabled', () => {
+      const ctx = baseCtx({ fileSearchEnabled: false, codeEnabled: false, contextEnabled: false });
+      expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], ctx)).toEqual([]);
+    });
   });
 
-  it.each(['google', 'openrouter'])('keeps direct media for %s', (endpoint) => {
-    expect(getViableUploadOptions([file('video/mp4'), file('audio/mpeg')], { endpoint })).toEqual([
-      undefined,
-    ]);
-  });
+  describe('provider-specific direct attachment', () => {
+    it('lets Google attach video directly', () => {
+      const ctx = baseCtx({
+        provider: 'google',
+        endpoint: 'google',
+        endpointType: 'google',
+        fileSearchEnabled: false,
+        codeEnabled: false,
+        contextEnabled: false,
+      });
+      expect(getViableUploadOptions([file('video/mp4', 'clip.mp4')], ctx)).toEqual([undefined]);
+    });
 
-  it('keeps Bedrock document support', () => {
-    expect(getViableUploadOptions([file(xlsx)], { endpoint: 'bedrock' })).toEqual([undefined]);
-  });
+    it('does not let Anthropic attach video directly', () => {
+      const ctx = baseCtx({
+        fileSearchEnabled: false,
+        codeEnabled: false,
+        contextEnabled: false,
+      });
+      expect(getViableUploadOptions([file('video/mp4', 'clip.mp4')], ctx)).toEqual([]);
+    });
 
-  it('requires Responses API for Azure direct PDFs', () => {
-    const ctx = { endpoint: 'azureOpenAI' };
-    expect(getViableUploadOptions([file('application/pdf')], ctx)).toEqual([]);
-    expect(
-      getViableUploadOptions([file('application/pdf')], { ...ctx, useResponsesApi: true }),
-    ).toEqual([undefined]);
-  });
+    it('lets Bedrock attach a spreadsheet directly via its document allowlist', () => {
+      const ctx = baseCtx({
+        provider: 'bedrock',
+        endpoint: 'bedrock',
+        endpointType: 'bedrock',
+        fileSearchEnabled: false,
+        codeEnabled: false,
+        contextEnabled: false,
+      });
+      expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], ctx)).toEqual([undefined]);
+    });
 
-  it('honors permissive custom endpoints without adding tool routes', () => {
-    expect(
-      getViableUploadOptions([file(xlsx)], {
+    it('honors a permissive custom endpoint config for direct attach', () => {
+      const ctx = baseCtx({
+        provider: 'MyGateway',
         endpoint: 'MyGateway',
         endpointType: 'custom',
+        fileSearchEnabled: false,
+        codeEnabled: false,
+        contextEnabled: false,
         endpointSupportedMimeTypes: [/.*/],
-      }),
-    ).toEqual([undefined]);
+      });
+      expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], ctx)).toEqual([undefined]);
+    });
+
+    it('does not treat a non-permissive custom config as broad provider support', () => {
+      const ctx = baseCtx({
+        provider: 'MyGateway',
+        endpoint: 'MyGateway',
+        endpointType: 'custom',
+        fileSearchEnabled: false,
+        codeEnabled: false,
+        contextEnabled: false,
+        endpointSupportedMimeTypes: [/^application\/pdf$/],
+      });
+      expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], ctx)).toEqual([]);
+    });
   });
 
-  it('honors restrictive endpoint MIME configuration', () => {
-    const ctx = { ...base, endpointSupportedMimeTypes: [/^application\/pdf$/] };
-    expect(getViableUploadOptions([file('image/png')], ctx)).toEqual([]);
-    expect(getViableUploadOptions([file('application/pdf')], ctx)).toEqual([undefined]);
-    expect(getViableUploadOptions([file(xlsx)], { ...ctx, endpointType: 'custom' })).toEqual([]);
+  it('drops an option when the agent disallows it', () => {
+    const ctx = baseCtx({ contextEnabled: false, fileSearchEnabled: false });
+    expect(getViableUploadOptions([file(XLSX, 'report.xlsx')], ctx)).toEqual([
+      EToolResources.execute_code,
+    ]);
   });
 });

@@ -1,9 +1,12 @@
 import { useCallback, useState, useEffect, useRef, memo, startTransition } from 'react';
+import type { ReactNode } from 'react';
 import { useRecoilState } from 'recoil';
+import { useForm } from 'react-hook-form';
 import { useMediaQuery } from '@librechat/client';
-import { ActivePanelProvider } from '~/Providers';
+import type { ChatFormValues } from '~/common';
+import { ChatContext, ChatFormProvider, ActivePanelProvider } from '~/Providers';
 import useUnifiedSidebarLinks from '~/hooks/Nav/useUnifiedSidebarLinks';
-import { useLocalize } from '~/hooks';
+import { useChatHelpers, useLocalize } from '~/hooks';
 import SidePanelNav from '~/components/SidePanel/Nav';
 import ExpandedPanel from './ExpandedPanel';
 import Sidebar from './Sidebar';
@@ -18,6 +21,22 @@ const EASING = 'cubic-bezier(0.2, 0, 0, 1)';
 function getInitialWidth(): number {
   const saved = localStorage.getItem('side:width');
   return saved ? Math.max(Number(saved), EXPANDED_MIN) : EXPANDED_MIN;
+}
+
+/**
+ * Isolates useChatHelpers Recoil subscriptions from the sidebar layout.
+ * Atom changes (e.g. during streaming) only re-render this component
+ * and the active panel — not the sidebar shell, resize logic, or icon strip.
+ * This works because Recoil subscriptions don't propagate to parent components.
+ */
+function SidebarChatProvider({ children }: { children: ReactNode }) {
+  const chatHelpers = useChatHelpers(0);
+  const sidebarFormMethods = useForm<ChatFormValues>({ defaultValues: { text: '' } });
+  return (
+    <ChatFormProvider {...sidebarFormMethods}>
+      <ChatContext.Provider value={chatHelpers}>{children}</ChatContext.Provider>
+    </ChatFormProvider>
+  );
 }
 
 function UnifiedSidebar() {
@@ -127,12 +146,14 @@ function UnifiedSidebar() {
           }}
           inert={!expanded ? '' : undefined}
         >
-          <ActivePanelProvider>
-            <ExpandedPanel links={links} onCollapse={handleCollapse} />
-            <nav className="min-h-0 flex-1 overflow-hidden bg-surface-primary-alt">
-              <SidePanelNav links={links} />
-            </nav>
-          </ActivePanelProvider>
+          <SidebarChatProvider>
+            <ActivePanelProvider>
+              <ExpandedPanel links={links} onCollapse={handleCollapse} />
+              <nav className="min-h-0 flex-1 overflow-hidden bg-surface-primary-alt">
+                <SidePanelNav links={links} />
+              </nav>
+            </ActivePanelProvider>
+          </SidebarChatProvider>
         </div>
         <div
           className={cn(
@@ -154,29 +175,31 @@ function UnifiedSidebar() {
   }
 
   return (
-    <ActivePanelProvider>
-      <aside
-        className="relative flex h-full flex-shrink-0 overflow-hidden"
-        style={{
-          width: expanded ? sidebarWidth : COLLAPSED_WIDTH,
-          minWidth: expanded ? EXPANDED_MIN : COLLAPSED_WIDTH,
-          maxWidth: expanded ? '40%' : COLLAPSED_WIDTH,
-          transition: isResizing
-            ? 'none'
-            : `width ${TRANSITION_MS}ms ${EASING}, min-width ${TRANSITION_MS}ms ${EASING}, max-width ${TRANSITION_MS}ms ${EASING}`,
-        }}
-        aria-label={localize('com_nav_control_panel')}
-      >
-        <Sidebar
-          links={links}
-          expanded={expanded}
-          onCollapse={handleCollapse}
-          onExpand={handleExpand}
-          onResizeStart={handleResizeStart}
-          onResizeKeyboard={handleResizeKeyboard}
-        />
-      </aside>
-    </ActivePanelProvider>
+    <SidebarChatProvider>
+      <ActivePanelProvider>
+        <aside
+          className="relative flex h-full flex-shrink-0 overflow-hidden"
+          style={{
+            width: expanded ? sidebarWidth : COLLAPSED_WIDTH,
+            minWidth: expanded ? EXPANDED_MIN : COLLAPSED_WIDTH,
+            maxWidth: expanded ? '40%' : COLLAPSED_WIDTH,
+            transition: isResizing
+              ? 'none'
+              : `width ${TRANSITION_MS}ms ${EASING}, min-width ${TRANSITION_MS}ms ${EASING}, max-width ${TRANSITION_MS}ms ${EASING}`,
+          }}
+          aria-label={localize('com_nav_control_panel')}
+        >
+          <Sidebar
+            links={links}
+            expanded={expanded}
+            onCollapse={handleCollapse}
+            onExpand={handleExpand}
+            onResizeStart={handleResizeStart}
+            onResizeKeyboard={handleResizeKeyboard}
+          />
+        </aside>
+      </ActivePanelProvider>
+    </SidebarChatProvider>
   );
 }
 

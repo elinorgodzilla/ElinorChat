@@ -79,15 +79,15 @@ const renderWith = (ui: React.ReactElement, opts: { streaming?: boolean } = {}) 
 };
 
 describe('LogContent attachment routing', () => {
-  it('renders HTML attachments as escaped text with a download link', () => {
+  it('routes HTML attachments through ToolArtifactCard (panel)', () => {
     const html = baseAttachment({
       file_id: 'a',
       filename: 'index.html',
       text: '<h1>hi</h1>',
     } as Partial<TAttachment>);
     renderWith(<LogContent output="" attachments={[html]} />);
-    expect(screen.queryByRole('button', { pressed: true })).not.toBeInTheDocument();
-    expect(screen.getByText('<h1>hi</h1>').tagName).toBe('PRE');
+    // The panel card carries an aria-pressed state; auto-focused on mount.
+    expect(screen.getByRole('button', { pressed: true })).toBeInTheDocument();
     expect(screen.getByText('index.html')).toBeInTheDocument();
   });
 
@@ -127,7 +127,7 @@ describe('LogContent attachment routing', () => {
     expect(screen.getByTestId('log-link')).toHaveAttribute('data-filename', 'archive.zip');
   });
 
-  it('keeps extracted office HTML readable as text', () => {
+  it('renders a panel card for a pptx with backend-rendered HTML in text', () => {
     /* PPTX (and DOCX/XLSX/CSV) now route through the office preview
      * bucket with a strict empty-text gate — the artifact only registers
      * once the backend's `bufferToOfficeHtml` has produced the slide-list
@@ -176,7 +176,7 @@ describe('LogContent attachment routing', () => {
     expect(screen.getByText(/slides\.pptx com_download_expired/)).toBeInTheDocument();
   });
 
-  it('renders non-expired historical artifacts as text', () => {
+  it('still routes a non-expired panel attachment through the panel', () => {
     const fresh = baseAttachment({
       file_id: 'x-fresh',
       filename: 'index.html',
@@ -184,8 +184,7 @@ describe('LogContent attachment routing', () => {
       expiresAt: Date.now() + 60_000,
     } as Partial<TAttachment>);
     renderWith(<LogContent output="" attachments={[fresh]} />);
-    expect(screen.getByText('<h1>hi</h1>').tagName).toBe('PRE');
-    expect(screen.queryByRole('button', { pressed: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { pressed: true })).toBeInTheDocument();
   });
 
   it('splits a mixed list into the right buckets', () => {

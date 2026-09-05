@@ -239,22 +239,19 @@ describe('useMessageScrolling', () => {
     expect(mockScrollToBottom).not.toHaveBeenCalled();
   });
 
-  it('reuses one intersection observer across repeated scroll events and disconnects on unmount', () => {
+  it('keeps one intersection observer across repeated scrolling and cleans up on unmount', () => {
     const { unmount } = renderScrolling();
     const scrollable = screen.getByTestId('scrollable');
     const end = screen.getByTestId('end');
     const observer = MockIntersectionObserver.instances[0];
-
-    expect(MockIntersectionObserver.instances).toHaveLength(1);
-    expect(observer.observe).toHaveBeenCalledTimes(1);
-    expect(observer.observe).toHaveBeenCalledWith(end);
 
     for (let i = 0; i < 300; i++) {
       fireEvent.scroll(scrollable);
     }
 
     expect(MockIntersectionObserver.instances).toHaveLength(1);
-    expect(observer.disconnect).not.toHaveBeenCalled();
+    expect(observer.observe).toHaveBeenCalledTimes(1);
+    expect(observer.observe).toHaveBeenCalledWith(end);
 
     act(() => {
       observer.trigger(end, false);
@@ -270,20 +267,6 @@ describe('useMessageScrolling', () => {
 
     unmount();
     expect(observer.disconnect).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancels pending observer visibility updates on unmount', () => {
-    const { unmount } = renderScrolling();
-    const observer = MockIntersectionObserver.instances[0];
-    const timerCount = jest.getTimerCount();
-
-    act(() => observer.trigger(screen.getByTestId('end'), false));
-    expect(jest.getTimerCount()).toBe(timerCount + 1);
-
-    unmount();
-
-    expect(observer.disconnect).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBeLessThanOrEqual(timerCount);
   });
 
   it('hides immediately and cancels a pending visibility debounce', () => {
@@ -439,25 +422,6 @@ describe('useMessageScrolling', () => {
     });
 
     expect(mockScrollToBottom).not.toHaveBeenCalled();
-  });
-
-  it('resumes resize follow when scrolling back near the bottom without a new intersection', () => {
-    renderScrolling();
-    const scrollable = screen.getByTestId('scrollable');
-    Object.defineProperty(scrollable, 'scrollHeight', { value: 1000, configurable: true });
-    Object.defineProperty(scrollable, 'clientHeight', { value: 200, configurable: true });
-
-    scrollable.scrollTop = 100;
-    fireEvent.scroll(scrollable);
-    act(() => MockResizeObserver.last()?.trigger());
-    expect(mockScrollToBottom).not.toHaveBeenCalled();
-
-    scrollable.scrollTop = 700;
-    fireEvent.scroll(scrollable);
-    act(() => MockResizeObserver.last()?.trigger());
-
-    expect(mockScrollToBottom).toHaveBeenCalledTimes(1);
-    expect(MockIntersectionObserver.instances).toHaveLength(1);
   });
 
   it('does not follow the next resize after user interaction inside message content', () => {

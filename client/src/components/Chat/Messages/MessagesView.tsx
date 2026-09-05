@@ -78,9 +78,11 @@ function MessagesViewContent({
             </div>
           </div>
 
-          {showScrollButton && scrollButtonPreference && (
-            <ScrollToBottom scrollHandler={handleScrollToBottom} />
-          )}
+          <div className="chat-scroll-button-slot">
+            {showScrollButton && scrollButtonPreference && (
+              <ScrollToBottom scrollHandler={handleScrollToBottom} />
+            )}
+          </div>
 
           <MessageNav scrollableRef={scrollableRef} />
         </div>

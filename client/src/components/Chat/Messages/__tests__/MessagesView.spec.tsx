@@ -172,6 +172,28 @@ describe('MessagesView scroll button', () => {
     },
   );
 
+  it('keeps the viewport sibling structure stable when scroll controls appear and disappear', () => {
+    const { container, setBottomVisible } = renderMessagesView();
+    const viewport = container.querySelector('.chat-messages-viewport');
+    const slot = container.querySelector('.chat-scroll-button-slot');
+    const parent = viewport?.parentElement;
+    expect(slot).toBeInTheDocument();
+    expect(slot?.parentElement).toBe(parent);
+    const siblings = Array.from(parent?.children ?? []);
+
+    for (let i = 0; i < 5; i++) {
+      setBottomVisible(false);
+      const button = screen.getByRole('button', { name: translationEn.com_ui_scroll_to_bottom });
+      expect(slot).toContainElement(button);
+      expect(Array.from(parent?.children ?? [])).toEqual(siblings);
+
+      setBottomVisible(true);
+      expect(button).not.toBeInTheDocument();
+      expect(slot).toBeEmptyDOMElement();
+      expect(Array.from(parent?.children ?? [])).toEqual(siblings);
+    }
+  });
+
   it('responds to preference changes and unmounts when the bottom becomes visible', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const { setBottomVisible } = renderMessagesView();

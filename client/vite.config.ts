@@ -7,7 +7,6 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { compression } from 'vite-plugin-compression2';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import type { Plugin } from 'vite';
-import leanBundle from './scripts/lean';
 
 const require = createRequire(import.meta.url);
 
@@ -68,7 +67,6 @@ export default defineConfig(({ command }) => ({
   envPrefix: ['VITE_', 'SCRIPT_', 'DOMAIN_', 'ALLOW_'],
   plugins: [
     react(),
-    leanBundle(),
     {
       name: 'node-polyfills-shims-resolver',
       resolveId(id) {

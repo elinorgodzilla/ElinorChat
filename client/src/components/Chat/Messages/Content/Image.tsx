@@ -46,7 +46,6 @@ const Image = ({
   height?: number;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const absoluteImageUrl = useMemo(() => {
@@ -103,8 +102,7 @@ const Image = ({
   const dims = width && height ? { width, height } : dimensionCache.get(absoluteImageUrl);
   const hasDimensions = !!(dims?.width && dims?.height);
   const heightStyle = hasDimensions ? computeHeightStyle(dims.width, dims.height) : undefined;
-  const showSkeleton =
-    hasDimensions && loadedUrl !== absoluteImageUrl && !paintedUrls.has(absoluteImageUrl);
+  const showSkeleton = hasDimensions && !paintedUrls.has(absoluteImageUrl);
 
   return (
     <div>
@@ -125,12 +123,7 @@ const Image = ({
         <img
           alt={altText}
           src={absoluteImageUrl}
-          loading="lazy"
-          decoding="async"
-          onLoad={() => {
-            paintedUrls.add(absoluteImageUrl);
-            setLoadedUrl(absoluteImageUrl);
-          }}
+          onLoad={() => paintedUrls.add(absoluteImageUrl)}
           className={cn(
             'relative block text-transparent',
             hasDimensions

@@ -168,7 +168,7 @@ const ContentRender = memo(function ContentRender({
   };
 
   const baseClasses = {
-    common: 'group mx-auto flex flex-1 gap-3',
+    common: 'group mx-auto flex flex-1 gap-3 transition-all duration-300 transform-gpu ',
     chat: getChatWidthClass(),
   };
 

@@ -8,6 +8,8 @@ import {
   TwoFactorScreen,
   RequestPasswordReset,
 } from '~/components/Auth';
+import { MarketplaceProvider } from '~/components/Agents/MarketplaceContext';
+import AgentMarketplace from '~/components/Agents/Marketplace';
 import { OAuthSuccess, OAuthError } from '~/components/OAuth';
 import { AuthContextProvider } from '~/hooks/AuthContext';
 import WithRum from '~/lib/rum/WithRum';
@@ -31,6 +33,11 @@ const AuthLayout = () => (
 
 const loadInlinePromptsView = () =>
   import('~/components/Prompts/layouts/InlinePromptsView').then((m) => ({
+    Component: m.default,
+  }));
+
+const loadSkillsView = () =>
+  import('~/components/Skills/layouts/SkillsView').then((m) => ({
     Component: m.default,
   }));
 
@@ -140,8 +147,20 @@ export const router = createBrowserRouter(
               lazy: loadInlinePromptsView,
             },
             {
-              path: 'skills/*',
-              element: <Navigate to="/c/new" replace={true} />,
+              path: 'skills',
+              lazy: loadSkillsView,
+            },
+            {
+              path: 'skills/new',
+              lazy: loadSkillsView,
+            },
+            {
+              path: 'skills/:skillId',
+              lazy: loadSkillsView,
+            },
+            {
+              path: 'skills/:skillId/edit',
+              lazy: loadSkillsView,
             },
             {
               path: 'projects',
@@ -152,8 +171,20 @@ export const router = createBrowserRouter(
               lazy: loadProjectWorkspace,
             },
             {
-              path: 'agents/*',
-              element: <Navigate to="/c/new" replace={true} />,
+              path: 'agents',
+              element: (
+                <MarketplaceProvider>
+                  <AgentMarketplace />
+                </MarketplaceProvider>
+              ),
+            },
+            {
+              path: 'agents/:category',
+              element: (
+                <MarketplaceProvider>
+                  <AgentMarketplace />
+                </MarketplaceProvider>
+              ),
             },
           ],
         },

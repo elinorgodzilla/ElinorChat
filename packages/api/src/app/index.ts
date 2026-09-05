@@ -1,5 +1,4 @@
 export * from './service';
-export * from './lean';
 export * from './config';
 export * from './metrics';
 export * from './permissions';

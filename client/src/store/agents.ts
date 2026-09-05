@@ -1,7 +1,6 @@
 import { Constants } from 'librechat-data-provider';
 import { atomFamily, useRecoilCallback } from 'recoil';
 import type { TEphemeralAgent } from 'librechat-data-provider';
-import { projectSearchState } from '~/utils/ephemeral';
 import { logger } from '~/utils';
 
 export const ephemeralAgentByConvoId = atomFamily<TEphemeralAgent | null, string>({
@@ -21,7 +20,7 @@ export function useUpdateEphemeralAgent() {
   const updateEphemeralAgent = useRecoilCallback(
     ({ set }) =>
       (convoId: string, agent: TEphemeralAgent | null) => {
-        set(ephemeralAgentByConvoId(convoId), projectSearchState(agent));
+        set(ephemeralAgentByConvoId(convoId), agent);
       },
     [],
   );
@@ -59,7 +58,7 @@ export function useApplyNewAgentTemplate() {
           if (agentTemplate) {
             logger.log('agents', `Applying agent template to "${targetId}":`, agentTemplate);
             // 3. Set the state for the target conversation ID using the template value
-            set(ephemeralAgentByConvoId(targetId), projectSearchState(agentTemplate));
+            set(ephemeralAgentByConvoId(targetId), agentTemplate);
           } else {
             // 4. Handle the case where the "new" template has no agent state (is null)
             logger.warn(
@@ -68,6 +67,8 @@ export function useApplyNewAgentTemplate() {
             );
             // Explicitly set to null (or a default empty state if preferred)
             set(ephemeralAgentByConvoId(targetId), null);
+            // Example: Or set to a default empty state:
+            // set(ephemeralAgentByConvoId(targetId), { mcp: [] });
           }
         } catch (error) {
           logger.error(
@@ -87,7 +88,7 @@ export function useApplyNewAgentTemplate() {
 /**
  * Creates a callback function to get the current ephemeral agent state
  * for a specified conversation ID without subscribing the component.
- * Returns only the supported search state synchronously.
+ * Returns a Loadable object synchronously.
  */
 export function useGetEphemeralAgent() {
   const getEphemeralAgent = useRecoilCallback(
@@ -95,9 +96,7 @@ export function useGetEphemeralAgent() {
       (conversationId: string): TEphemeralAgent | null => {
         logger.log('agents', `[useGetEphemeralAgent] Getting loadable for ID: ${conversationId}`);
         const agentLoadable = snapshot.getLoadable(ephemeralAgentByConvoId(conversationId));
-        return agentLoadable.state === 'hasValue'
-          ? projectSearchState(agentLoadable.contents)
-          : null;
+        return agentLoadable.contents as TEphemeralAgent | null;
       },
     [],
   );

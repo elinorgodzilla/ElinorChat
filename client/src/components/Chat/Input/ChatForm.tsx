@@ -4,7 +4,7 @@ import { TextareaAutosize } from '@librechat/client';
 import { useRecoilState, useRecoilValue, useRecoilCallback } from 'recoil';
 import { Constants, isAssistantsEndpoint, isAgentsEndpoint } from 'librechat-data-provider';
 import type { TMessage, TConversation } from 'librechat-data-provider';
-import type { ExtendedFile, FileSetter } from '~/common';
+import type { ExtendedFile, FileSetter, ConvoGenerator } from '~/common';
 import type { QueuedMessageContext } from '~/hooks/Chat/useSteering';
 import {
   useTextarea,
@@ -22,12 +22,13 @@ import {
   useAddedChatContext,
   useAssistantsMapContext,
 } from '~/Providers';
+import PendingManualSkillsChips from './PendingManualSkillsChips';
 import useAskAnswerMode from '~/hooks/Input/useAskAnswerMode';
 import AskUserQuestionPopover from './AskUserQuestionPopover';
 import { cn, getModelSpec, removeFocusRings } from '~/utils';
 import DuringRunSendButton from './DuringRunSendButton';
 import { useGetStartupConfig } from '~/data-provider';
-import { mainTextareaId } from '~/common';
+import { mainTextareaId, BadgeItem } from '~/common';
 import PendingSteerChips from './PendingSteerChips';
 import PendingQuoteChips from './PendingQuoteChips';
 import AttachFileChat from './Files/AttachFileChat';
@@ -35,6 +36,8 @@ import useSteering from '~/hooks/Chat/useSteering';
 import FileFormChat from './Files/FileFormChat';
 import InFlightSteers from './InFlightSteers';
 import TextareaHeader from './TextareaHeader';
+import PromptsCommand from './PromptsCommand';
+import SkillsCommand from './SkillsCommand';
 import AudioRecorder from './AudioRecorder';
 import CollapseChat from './CollapseChat';
 import QuoteButton from './QuoteButton';
@@ -42,7 +45,9 @@ import StreamAudio from './StreamAudio';
 import TokenUsage from './TokenUsage';
 import StopButton from './StopButton';
 import SendButton from './SendButton';
+import EditBadges from './EditBadges';
 import BadgeRow from './BadgeRow';
+import Mention from './Mention';
 import store from '~/store';
 
 interface ChatFormProps {
@@ -55,6 +60,7 @@ interface ChatFormProps {
   isSubmitting: boolean;
   filesLoading: boolean;
   setFilesLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  newConversation: ConvoGenerator;
   handleStopGenerating: (e: React.MouseEvent<HTMLButtonElement>) => void;
   stopGenerating: () => void;
 }
@@ -68,6 +74,7 @@ const ChatForm = memo(function ChatForm({
   isSubmitting,
   filesLoading,
   setFilesLoading,
+  newConversation,
   handleStopGenerating,
   stopGenerating,
 }: ChatFormProps) {
@@ -80,6 +87,7 @@ const ChatForm = memo(function ChatForm({
   const [, setIsScrollable] = useState(false);
   const [visualRowCount, setVisualRowCount] = useState(1);
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(false);
+  const [backupBadges, setBackupBadges] = useState<Pick<BadgeItem, 'id'>[]>([]);
 
   const SpeechToText = useRecoilValue(store.speechToText);
   const TextToSpeech = useRecoilValue(store.textToSpeech);
@@ -89,11 +97,19 @@ const ChatForm = memo(function ChatForm({
   const centerFormOnLanding = useRecoilValue(store.centerFormOnLanding);
   const isTemporary = useRecoilValue(store.isTemporary);
 
+  const [badges, setBadges] = useRecoilState(store.chatBadges);
+  const [isEditingBadges, setIsEditingBadges] = useRecoilState(store.isEditingBadges);
   const [showStopButton, setShowStopButton] = useRecoilState(store.showStopButtonByIndex(index));
+  const plusPopoverAtom = useMemo(() => store.showPlusPopoverFamily(index), [index]);
+  const mentionPopoverAtom = useMemo(() => store.showMentionPopoverFamily(index), [index]);
 
   const { requiresKey } = useRequiresKey();
   const methods = useChatFormContext();
-  const { conversation: addedConvo, setConversation: setAddedConvo } = useAddedChatContext();
+  const {
+    generateConversation,
+    conversation: addedConvo,
+    setConversation: setAddedConvo,
+  } = useAddedChatContext();
   const assistantMap = useAssistantsMapContext();
   const { data: startupConfig } = useGetStartupConfig();
 
@@ -170,26 +186,35 @@ const ChatForm = memo(function ChatForm({
     draftId: answerMode.draftId,
   });
 
-  const { submitMessage } = useSubmitMessage();
+  const { submitMessage, submitPrompt } = useSubmitMessage();
 
-  /** Explicit overrides keep queued sends from consuming the next draft's quotes. */
+  /** Queued/steered sends carry their FULL submission context: explicit
+   *  (possibly empty) overrides stop `ask` from vacuuming quotes or skill
+   *  picks the user has staged in the composer for their NEXT message. */
   const sendNow = useCallback(
     (text: string, overrideFiles?: TMessage['files'], context?: QueuedMessageContext) =>
       submitMessage({
         text,
         overrideFiles,
         overrideQuotes: context?.quotes ?? [],
+        overrideManualSkills: context?.manualSkills ?? [],
       }),
     [submitMessage],
   );
-  /** Restore quotes when editing a queued message back into the composer. */
+  /** Chip "Edit message" restore: quote chips + skill picks merge back into
+   *  their compose-time atoms (the chips above the textarea re-render them). */
   const restoreComposerContext = useRecoilCallback(
     ({ set }) =>
       (context?: QueuedMessageContext) => {
-        const { quotes } = context ?? {};
+        const { quotes, manualSkills } = context ?? {};
         if (quotes != null && quotes.length > 0) {
           set(store.pendingQuotesByConvoId(conversationId), (prev) => [
             ...new Set([...prev, ...quotes]),
+          ]);
+        }
+        if (manualSkills != null && manualSkills.length > 0) {
+          set(store.pendingManualSkillsByConvoId(conversationId), (prev) => [
+            ...new Set([...prev, ...manualSkills]),
           ]);
         }
       },
@@ -306,6 +331,25 @@ const ChatForm = memo(function ChatForm({
     }
   }, [textValue]);
 
+  useEffect(() => {
+    if (isEditingBadges && backupBadges.length === 0) {
+      setBackupBadges([...badges]);
+    }
+  }, [isEditingBadges, badges, backupBadges.length]);
+
+  const handleSaveBadges = useCallback(() => {
+    setIsEditingBadges(false);
+    setBackupBadges([]);
+  }, [setIsEditingBadges, setBackupBadges]);
+
+  const handleCancelBadges = useCallback(() => {
+    if (backupBadges.length > 0) {
+      setBadges([...backupBadges]);
+    }
+    setIsEditingBadges(false);
+    setBackupBadges([]);
+  }, [backupBadges, setBadges, setIsEditingBadges]);
+
   const isMoreThanThreeRows = visualRowCount > 3;
 
   /** One button slot while a run is generating: with composer text the send
@@ -373,9 +417,31 @@ const ChatForm = memo(function ChatForm({
               endpoint, so a chip that outlives the run would strand a bubble. */}
           {steering.enabled && isSubmitting && <InFlightSteers conversationId={conversationId} />}
           <div className={cn('flex w-full items-center', isRTL && 'flex-row-reverse')}>
+            <Mention
+              index={index}
+              popoverAtom={plusPopoverAtom}
+              newConversation={generateConversation}
+              textAreaRef={textAreaRef}
+              commandChar="+"
+              placeholder="com_ui_add_model_preset"
+              includeAssistants={false}
+            />
+            <Mention
+              index={index}
+              popoverAtom={mentionPopoverAtom}
+              newConversation={newConversation}
+              textAreaRef={textAreaRef}
+            />
+            <PromptsCommand index={index} textAreaRef={textAreaRef} submitPrompt={submitPrompt} />
             {index === 0 && (
               <AskUserQuestionPopover conversationId={conversationId} textAreaRef={textAreaRef} />
             )}
+            <SkillsCommand
+              index={index}
+              textAreaRef={textAreaRef}
+              conversationId={conversationId}
+              agentId={conversation?.agent_id}
+            />
             <div
               onClick={handleContainerClick}
               className={cn(
@@ -387,6 +453,7 @@ const ChatForm = memo(function ChatForm({
               )}
             >
               <TextareaHeader addedConvo={addedConvo} setAddedConvo={setAddedConvo} />
+              <PendingManualSkillsChips conversationId={conversationId} />
               {quotesEnabled && <PendingQuoteChips conversationId={conversationId} />}
               {steering.enabled && (
                 <PendingSteerChips
@@ -395,6 +462,13 @@ const ChatForm = memo(function ChatForm({
                   onEditToComposer={editToComposer}
                 />
               )}
+              {/* WIP */}
+              <EditBadges
+                isEditingChatBadges={isEditingBadges}
+                handleCancelBadges={handleCancelBadges}
+                handleSaveBadges={handleSaveBadges}
+                setBadges={setBadges}
+              />
               <FileFormChat
                 conversation={conversation}
                 files={files}
@@ -486,6 +560,10 @@ const ChatForm = memo(function ChatForm({
                   isSubmitting={isSubmitting}
                   conversationId={conversationId}
                   specName={conversation?.spec}
+                  onChange={setBadges}
+                  isInChat={
+                    Array.isArray(conversation?.messages) && conversation.messages.length >= 1
+                  }
                 />
                 <div className="mx-auto flex" />
                 <TokenUsage index={index} conversation={conversation} isSubmitting={isSubmitting} />
@@ -537,6 +615,7 @@ function ChatFormWrapper({ index = 0, placeholder }: { index?: number; placehold
     isSubmitting,
     filesLoading,
     setFilesLoading,
+    newConversation,
     handleStopGenerating,
     stopGenerating,
   } = useChatContext();
@@ -571,6 +650,14 @@ function ChatFormWrapper({ index = 0, placeholder }: { index?: number; placehold
     [],
   );
 
+  const newConvoRef = useRef(newConversation);
+  newConvoRef.current = newConversation;
+  const stableNewConversation: ConvoGenerator = useCallback(
+    (...args: Parameters<ConvoGenerator>): ReturnType<ConvoGenerator> =>
+      newConvoRef.current(...args),
+    [],
+  );
+
   const stopRef = useRef(stopGenerating);
   stopRef.current = stopGenerating;
   const stableStop = useCallback(() => {
@@ -587,6 +674,7 @@ function ChatFormWrapper({ index = 0, placeholder }: { index?: number; placehold
       isSubmitting={isSubmitting}
       filesLoading={filesLoading}
       setFilesLoading={setFilesLoading}
+      newConversation={stableNewConversation}
       handleStopGenerating={stableHandleStop}
       stopGenerating={stableStop}
     />

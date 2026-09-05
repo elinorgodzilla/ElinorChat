@@ -999,56 +999,6 @@ describe('ToolService - Action Capability Gating', () => {
     });
   });
 
-  describe('loadAgentTools (definitionsOnly=false) - web search capability gating', () => {
-    it('preserves loaded web search without enabling generic tools', async () => {
-      const capabilities = [AgentCapabilities.web_search];
-      const req = createMockReq(capabilities);
-      const searchTool = { name: Tools.web_search };
-      const genericTool = { name: 'calculator' };
-      mockGetEndpointsConfig.mockResolvedValue(createEndpointsConfig(capabilities));
-      mockLoadToolsUtil.mockResolvedValueOnce({
-        loadedTools: [searchTool, genericTool],
-        toolContextMap: {},
-      });
-
-      const result = await loadAgentTools({
-        req,
-        res: {},
-        agent: {
-          id: Constants.EPHEMERAL_AGENT_ID,
-          tools: [Tools.web_search, genericTool.name],
-        },
-        definitionsOnly: false,
-      });
-
-      expect(mockLoadToolsUtil).toHaveBeenCalledTimes(1);
-      expect(mockLoadToolsUtil).toHaveBeenCalledWith(
-        expect.objectContaining({ tools: [Tools.web_search] }),
-      );
-      expect(result.tools).toEqual([searchTool]);
-      expect(result.tools[0]).toBe(searchTool);
-      expect(result.tools).not.toContain(genericTool);
-    });
-
-    it.each([{ capabilities: [] }, { capabilities: [AgentCapabilities.tools] }])(
-      'does not load disabled web search with capabilities $capabilities',
-      async ({ capabilities }) => {
-        const req = createMockReq(capabilities);
-        mockGetEndpointsConfig.mockResolvedValue(createEndpointsConfig(capabilities));
-
-        const result = await loadAgentTools({
-          req,
-          res: {},
-          agent: { id: Constants.EPHEMERAL_AGENT_ID, tools: [Tools.web_search] },
-          definitionsOnly: false,
-        });
-
-        expect(mockLoadToolsUtil).not.toHaveBeenCalled();
-        expect(result).toEqual({});
-      },
-    );
-  });
-
   describe('loadToolsForExecution — action tool gating', () => {
     const actionToolName = `get_weather${actionDelimiter}api_example_com`;
     const regularTool = Tools.web_search;

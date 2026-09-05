@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useMemo, useCallback } from 'react';
 import { useDrop } from 'react-dnd';
 import { useRecoilValue } from 'recoil';
 import { useToastContext } from '@librechat/client';
@@ -8,11 +8,13 @@ import {
   QueryKeys,
   mergeFileConfig,
   resolveEndpointType,
+  isAssistantsEndpoint,
   getEndpointFileConfig,
 } from 'librechat-data-provider';
 import type { DropTargetMonitor } from 'react-dnd';
 import type * as t from 'librechat-data-provider';
 import useFileUploadRouter from './useFileUploadRouter';
+import { useUploadModalContext } from '~/Providers';
 import useUploadOptions from './useUploadOptions';
 import useLocalize from '../useLocalize';
 import store from '~/store';
@@ -23,17 +25,27 @@ export default function useDragHelpers() {
   const localize = useLocalize();
   const conversation = useRecoilValue(store.conversationByIndex(0)) || undefined;
 
+  const isAssistants = useMemo(
+    () => isAssistantsEndpoint(conversation?.endpoint),
+    [conversation?.endpoint],
+  );
+
   const { getOptions } = useUploadOptions();
   const routeFiles = useFileUploadRouter();
+  const { openModal } = useUploadModalContext();
 
   /** Use refs to avoid re-creating the drop handler */
   const conversationRef = useRef(conversation);
   const getOptionsRef = useRef(getOptions);
   const routeFilesRef = useRef(routeFiles);
+  const openModalRef = useRef(openModal);
+  const isAssistantsRef = useRef(isAssistants);
 
   conversationRef.current = conversation;
   getOptionsRef.current = getOptions;
   routeFilesRef.current = routeFiles;
+  openModalRef.current = openModal;
+  isAssistantsRef.current = isAssistants;
 
   const handleDrop = useCallback(
     (item: { files: File[] }) => {
@@ -62,12 +74,22 @@ export default function useDragHelpers() {
         }
       }
 
+      /** Assistants do not use the upload-option flow */
+      if (isAssistantsRef.current) {
+        routeFilesRef.current(item.files);
+        return;
+      }
+
       const options = getOptionsRef.current(item.files);
       if (options.length === 0) {
         showToast({ message: localize('com_error_files_unsupported'), status: 'error' });
         return;
       }
-      routeFilesRef.current(item.files);
+      if (options.length === 1) {
+        routeFilesRef.current(item.files, options[0]);
+        return;
+      }
+      openModalRef.current(item.files);
     },
     [queryClient, showToast, localize],
   );

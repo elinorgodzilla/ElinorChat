@@ -2,7 +2,6 @@ import React from 'react';
 import { RecoilRoot } from 'recoil';
 import { Tools, Constants } from 'librechat-data-provider';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { TAttachment } from 'librechat-data-provider';
 import ToolCall from '../ToolCall';
 
 // Mock dependencies
@@ -32,6 +31,10 @@ jest.mock('~/hooks', () => ({
     },
     ref: { current: null },
   }),
+}));
+
+jest.mock('~/hooks/MCP', () => ({
+  useMCPIconMap: () => new Map(),
 }));
 
 jest.mock('~/components/Chat/Messages/Content/MessageContent', () => ({
@@ -113,23 +116,6 @@ describe('ToolCall', () => {
   });
 
   describe('attachments prop passing', () => {
-    it('keeps resource-only historical output expandable without arguments', () => {
-      const attachments: TAttachment[] = [
-        {
-          type: Tools.ui_resources,
-          messageId: 'message',
-          toolCallId: 'tool',
-          [Tools.ui_resources]: [{ resourceId: 'saved', uri: 'ui://saved', text: 'Saved output' }],
-        },
-      ];
-      renderWithRecoil(<ToolCall {...mockProps} args="" output="" attachments={attachments} />);
-      fireEvent.click(screen.getByTestId('progress-text'));
-      expect(screen.getByTestId('tool-call-info')).toHaveAttribute(
-        'data-attachments',
-        JSON.stringify(attachments),
-      );
-    });
-
     it('should pass attachments to ToolCallInfo when provided', () => {
       const attachments = [
         {
@@ -408,20 +394,6 @@ describe('ToolCall', () => {
   });
 
   describe('MCP OAuth detection', () => {
-    it('keeps historical MCP records readable without authentication controls', () => {
-      renderWithRecoil(
-        <ToolCall
-          {...mockProps}
-          name={`oauth${Constants.mcp_delimiter}old-server`}
-          auth="https://auth.example.com"
-          initialProgress={0.5}
-          isSubmitting={true}
-        />,
-      );
-      expect(screen.getByTestId('progress-text')).toHaveTextContent('old-server');
-      expect(screen.queryByRole('button', { name: /Sign in/ })).toBeNull();
-    });
-
     const d = Constants.mcp_delimiter;
 
     it('should detect MCP OAuth from delimiter in tool-call name', () => {

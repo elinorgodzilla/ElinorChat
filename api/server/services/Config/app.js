@@ -1,11 +1,6 @@
 const { CacheKeys } = require('librechat-data-provider');
 const { AppService, logger } = require('@librechat/data-schemas');
-const {
-  createAppConfigService,
-  clearMcpConfigCache,
-  applyLeanConfig,
-  applyLeanAppConfig,
-} = require('@librechat/api');
+const { createAppConfigService, clearMcpConfigCache } = require('@librechat/api');
 const { setCachedTools, invalidateCachedTools } = require('./getCachedTools');
 const { loadAndFormatTools } = require('~/server/services/start/tools');
 const loadCustomConfig = require('./loadCustomConfig');
@@ -15,7 +10,7 @@ const db = require('~/models');
 
 const loadBaseConfig = async () => {
   /** @type {TCustomConfig} */
-  const config = applyLeanConfig((await loadCustomConfig()) ?? {});
+  const config = (await loadCustomConfig()) ?? {};
   /** @type {Record<string, FunctionTool>} */
   const systemTools = loadAndFormatTools({
     adminFilter: config.filteredTools,
@@ -27,7 +22,6 @@ const loadBaseConfig = async () => {
 
 const { getAppConfig, clearAppConfigCache, clearOverrideCache } = createAppConfigService({
   loadBaseConfig,
-  normalizeConfig: applyLeanAppConfig,
   setCachedTools,
   getCache: getLogStores,
   cacheKeys: CacheKeys,

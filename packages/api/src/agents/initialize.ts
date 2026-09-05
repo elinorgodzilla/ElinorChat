@@ -8,7 +8,6 @@ import {
   EToolResources,
   paramEndpoints,
   isAgentsEndpoint,
-  AgentCapabilities,
   replaceSpecialVars,
   providerEndpointMap,
 } from 'librechat-data-provider';
@@ -1270,11 +1269,7 @@ export async function initializeAgent(
     }
   }
 
-  if (
-    req.config?.endpoints?.agents?.capabilities?.includes(AgentCapabilities.artifacts) &&
-    typeof agent.artifacts === 'string' &&
-    agent.artifacts !== ''
-  ) {
+  if (typeof agent.artifacts === 'string' && agent.artifacts !== '') {
     const artifactsPromptResult = generateArtifactsPrompt({
       endpoint: agent.provider,
       artifacts: agent.artifacts as never,

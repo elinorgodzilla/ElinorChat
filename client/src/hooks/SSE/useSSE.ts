@@ -22,7 +22,6 @@ import type { TResData } from '~/common';
 import { clearAllDrafts, applyPendingAction, findPendingActionMessageIndex } from '~/utils';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import { useAuthContext } from '~/hooks/AuthContext';
-import { projectSearchState } from '~/utils/ephemeral';
 import useEventHandlers from './useEventHandlers';
 import useUsageHandler from './useUsageHandler';
 import store from '~/store';
@@ -92,11 +91,7 @@ export default function useSSE(
 
     let { userMessage } = submission;
 
-    const payloadData = createPayload({
-      ...submission,
-      ephemeralAgent: projectSearchState(submission.ephemeralAgent),
-      manualSkills: undefined,
-    });
+    const payloadData = createPayload(submission);
     let { payload } = payloadData;
     payload = removeNullishValues(payload) as TPayload;
 

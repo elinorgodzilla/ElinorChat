@@ -2,72 +2,139 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { ContentTypes } from 'librechat-data-provider';
 import type { TMessageContentParts } from 'librechat-data-provider';
-import ContentParts from '../ContentParts';
 
 jest.mock('~/utils', () => ({
   mapAttachments: () => ({}),
-  groupSequentialToolCalls: (parts: Array<{ part: TMessageContentParts; idx: number }>) =>
-    parts.map((part) => ({ type: 'single', part })),
+  groupSequentialToolCalls: (parts: Array<{ part: unknown; idx: number }>) =>
+    parts.map((p) => ({ type: 'single' as const, part: p })),
 }));
+
 jest.mock('~/Providers', () => ({
-  MessageContext: { Provider: ({ children }: { children: React.ReactNode }) => <>{children}</> },
-  SearchContext: { Provider: ({ children }: { children: React.ReactNode }) => <>{children}</> },
+  MessageContext: {
+    Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  },
+  SearchContext: {
+    Provider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  },
 }));
+
 jest.mock('../Parts', () => ({
-  EditTextPart: () => <div data-testid="edit" />,
-  EmptyText: () => <div data-testid="empty" />,
+  EditTextPart: () => <div data-testid="edit-text-part" />,
+  EmptyText: () => <div data-testid="empty-text" />,
 }));
-jest.mock('../MemoryArtifacts', () => ({ __esModule: true, default: () => null }));
-jest.mock('../ToolCallGroup', () => ({ __esModule: true, default: () => null }));
+
+jest.mock('../MemoryArtifacts', () => ({
+  __esModule: true,
+  default: () => <div data-testid="memory-artifacts" />,
+}));
+
+jest.mock('../Parts/PendingSkillCall', () => ({
+  __esModule: true,
+  default: ({ skillName, loaded }: { skillName: string; loaded: boolean }) => (
+    <div data-testid="pending-skill-call" data-skill={skillName} data-loaded={String(loaded)} />
+  ),
+}));
+
+jest.mock('../ToolCallGroup', () => ({
+  __esModule: true,
+  default: () => <div data-testid="tool-call-group" />,
+}));
+
 jest.mock('../Container', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="container">{children}</div>
+  ),
 }));
+
 jest.mock('../Part', () => ({
   __esModule: true,
-  default: () => <div data-testid="part" />,
+  default: ({ part }: { part: TMessageContentParts }) => (
+    <div data-testid={`real-part-${part.type}`} />
+  ),
 }));
+
 jest.mock('../ParallelContent', () => ({
-  ParallelContentRenderer: () => <div data-testid="parallel" />,
+  ParallelContentRenderer: () => <div data-testid="parallel-renderer" />,
 }));
+
+import ContentParts from '../ContentParts';
 
 const baseProps = {
-  messageId: 'message',
+  messageId: 'msg-1',
   isLast: false,
   isSubmitting: false,
+  isLatestMessage: false,
   isCreatedByUser: false,
-  manualSkills: ['old-skill'],
+  content: [],
 };
 
-describe('ContentParts without skill UI', () => {
-  it('does not render pending skills when there is no content', () => {
-    const { container } = render(<ContentParts {...baseProps} content={undefined} />);
-    expect(container).toBeEmptyDOMElement();
+describe('ContentParts — interim skill cards', () => {
+  it('renders a PendingSkillCall per manual skill on assistant messages', () => {
+    render(<ContentParts {...baseProps} manualSkills={['brand-guidelines', 'pptx']} />);
+    const cards = screen.getAllByTestId('pending-skill-call');
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveAttribute('data-skill', 'brand-guidelines');
+    expect(cards[1]).toHaveAttribute('data-skill', 'pptx');
   });
 
-  it.each([true, false])(
-    'preserves sequential content (user=%s) without skill cards',
-    (isCreatedByUser) => {
-      render(
-        <ContentParts
-          {...baseProps}
-          isCreatedByUser={isCreatedByUser}
-          content={[{ type: ContentTypes.TEXT, text: 'Saved text' }]}
-        />,
-      );
-      expect(screen.getByTestId('part')).toBeInTheDocument();
-      expect(screen.queryByText('old-skill')).toBeNull();
-    },
-  );
+  it('starts pending skill cards in the not-loaded state (no real content yet)', () => {
+    render(<ContentParts {...baseProps} manualSkills={['pptx']} />);
+    expect(screen.getByTestId('pending-skill-call')).toHaveAttribute('data-loaded', 'false');
+  });
 
-  it('preserves parallel historical content without skill cards', () => {
-    render(
-      <ContentParts
-        {...baseProps}
-        content={[{ type: ContentTypes.TEXT, text: 'Saved text', groupId: 1 }]}
-      />,
+  it('flips pending cards to loaded once any real content part arrives', () => {
+    const content: TMessageContentParts[] = [
+      { type: ContentTypes.TEXT, text: 'streamed' } as unknown as TMessageContentParts,
+    ];
+    render(<ContentParts {...baseProps} content={content} manualSkills={['pptx']} />);
+    expect(screen.getByTestId('pending-skill-call')).toHaveAttribute('data-loaded', 'true');
+  });
+
+  it('does NOT render skill cards on user messages', () => {
+    render(<ContentParts {...baseProps} isCreatedByUser manualSkills={['pptx']} />);
+    expect(screen.queryByTestId('pending-skill-call')).toBeNull();
+  });
+
+  it('renders nothing when manualSkills is empty and content is undefined', () => {
+    const { container } = render(
+      <ContentParts {...baseProps} content={undefined} manualSkills={[]} />,
     );
-    expect(screen.getByTestId('parallel')).toBeInTheDocument();
-    expect(screen.queryByText('old-skill')).toBeNull();
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders pending skill cards even when content is undefined', () => {
+    render(<ContentParts {...baseProps} content={undefined} manualSkills={['pptx']} />);
+    expect(screen.getAllByTestId('pending-skill-call')).toHaveLength(1);
+  });
+
+  it('renders pending skill cards above parallel content', () => {
+    const parallelContent: TMessageContentParts[] = [
+      {
+        type: ContentTypes.TEXT,
+        text: 'parallel',
+        groupId: 'group-1',
+      } as unknown as TMessageContentParts,
+    ];
+    render(<ContentParts {...baseProps} content={parallelContent} manualSkills={['pptx']} />);
+    const skillCard = screen.getByTestId('pending-skill-call');
+    const parallelRenderer = screen.getByTestId('parallel-renderer');
+    expect(skillCard).toBeTruthy();
+    expect(parallelRenderer).toBeTruthy();
+    expect(skillCard.compareDocumentPosition(parallelRenderer)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('renders pending skill cards above sequential content', () => {
+    const sequentialContent: TMessageContentParts[] = [
+      { type: ContentTypes.TEXT, text: 'streamed' } as unknown as TMessageContentParts,
+    ];
+    render(<ContentParts {...baseProps} content={sequentialContent} manualSkills={['pptx']} />);
+    const skillCard = screen.getByTestId('pending-skill-call');
+    const textPart = screen.getByTestId(`real-part-${ContentTypes.TEXT}`);
+    expect(skillCard).toBeTruthy();
+    expect(textPart).toBeTruthy();
+    expect(skillCard.compareDocumentPosition(textPart)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });

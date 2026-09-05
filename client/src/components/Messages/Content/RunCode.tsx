@@ -13,8 +13,8 @@ import store from '~/store';
 
 type RunState = 'idle' | 'loading' | 'success' | 'error';
 
-const RunCode: React.FC<CodeBarProps & { iconOnly?: boolean }> = React.memo(
-  ({ lang, codeRef, blockIndex, iconOnly = false }) => {
+const RunCode: React.FC<CodeBarProps & { iconOnly?: boolean; isVisible?: boolean }> = React.memo(
+  ({ lang, codeRef, blockIndex, iconOnly = false, isVisible = true }) => {
     const localize = useLocalize();
     const { showToast } = useToastContext();
     const execute = useToolCallMutation(Tools.execute_code, {
@@ -90,7 +90,7 @@ const RunCode: React.FC<CodeBarProps & { iconOnly?: boolean }> = React.memo(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [execute.isLoading, execute.isError]);
 
-    if (typeof normalizedLang !== 'string' || normalizedLang.length === 0) {
+    if (!isVisible || typeof normalizedLang !== 'string' || normalizedLang.length === 0) {
       return null;
     }
 
@@ -130,7 +130,7 @@ const RunCode: React.FC<CodeBarProps & { iconOnly?: boolean }> = React.memo(
               isLoading ? 'opacity-100' : 'opacity-0',
             )}
           >
-            <Spinner className="animate-spin" size={18} />
+            {isLoading && <Spinner className="animate-spin" size={18} />}
           </span>
           <Check size={18} className={iconClass(isSuccess)} />
           <X size={18} className={iconClass(isError)} />

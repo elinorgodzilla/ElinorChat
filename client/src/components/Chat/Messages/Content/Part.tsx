@@ -10,22 +10,29 @@ import {
 import type { TMessageContentParts, TAttachment } from 'librechat-data-provider';
 import {
   ImageGen,
+  ExecuteCode,
   AgentUpdate,
   EmptyText,
   Reasoning,
   Summary,
   Text,
+  SkillCall,
+  ReadFileCall,
+  FileAuthoringCall,
+  BashCall,
   SubagentCall,
   SteerPart,
 } from './Parts';
 import { getAskUserQuestionPart } from '~/utils/approval';
 import AskUserQuestionCall from './AskUserQuestionCall';
+import { isBashProgrammaticToolCall } from './routing';
 import { ErrorMessage } from './MessageContent';
 import AskUserQuestion from './AskUserQuestion';
 import RetrievalCall from './RetrievalCall';
 import { getCachedPreview } from '~/utils';
 import ToolApproval from './ToolApproval';
 import AgentHandoff from './AgentHandoff';
+import CodeAnalyze from './CodeAnalyze';
 import Container from './Container';
 import WebSearch from './WebSearch';
 import ToolCall from './ToolCall';
@@ -156,8 +163,41 @@ const Part = memo(function Part({
     const isToolCall =
       'args' in toolCall && (!toolCall.type || toolCall.type === ToolCallTypes.TOOL_CALL);
     if (isToolCall) {
+      const toolCallId =
+        'id' in toolCall && typeof toolCall.id === 'string' ? toolCall.id : undefined;
       const card = (() => {
-        if (
+        if (isBashProgrammaticToolCall(toolCall.name, toolCall.args)) {
+          return (
+            <BashCall
+              args={toolCall.args}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              isSubmitting={isSubmitting}
+              attachments={attachments}
+              commandField="code"
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+              toolCallId={toolCallId}
+            />
+          );
+        } else if (
+          toolCall.name === Tools.execute_code ||
+          toolCall.name === Constants.PROGRAMMATIC_TOOL_CALLING ||
+          toolCall.name === Constants.BASH_PROGRAMMATIC_TOOL_CALLING
+        ) {
+          return (
+            <ExecuteCode
+              attachments={attachments}
+              isSubmitting={isSubmitting}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              args={toolCall.args}
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+              toolCallId={toolCallId}
+            />
+          );
+        } else if (
           toolCall.name === 'image_gen_oai' ||
           toolCall.name === 'image_edit_oai' ||
           toolCall.name === 'gemini_image_gen'
@@ -185,6 +225,18 @@ const Part = memo(function Part({
               failed={'inputValidationError' in toolCall && toolCall.inputValidationError === true}
             />
           );
+        } else if (toolCall.name === 'skill') {
+          return (
+            <SkillCall
+              args={toolCall.args}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              isSubmitting={isSubmitting}
+              attachments={attachments}
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+            />
+          );
         } else if (toolCall.name === Constants.SUBAGENT) {
           /** `subagent_content` is the aggregated content-parts array the
            *  backend writes onto the tool_call at message-save time so the
@@ -207,6 +259,44 @@ const Part = memo(function Part({
               attachments={attachments}
               persistedContent={persistedContent}
               hideAttachments={hideAttachments}
+            />
+          );
+        } else if (toolCall.name === 'read_file') {
+          return (
+            <ReadFileCall
+              args={toolCall.args}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              isSubmitting={isSubmitting}
+              attachments={attachments}
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+            />
+          );
+        } else if (toolCall.name === 'create_file' || toolCall.name === 'edit_file') {
+          return (
+            <FileAuthoringCall
+              toolName={toolCall.name}
+              args={toolCall.args}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              isSubmitting={isSubmitting}
+              attachments={attachments}
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+            />
+          );
+        } else if (toolCall.name === Tools.bash_tool) {
+          return (
+            <BashCall
+              args={toolCall.args}
+              output={toolCall.output ?? ''}
+              initialProgress={toolCall.progress ?? 0.1}
+              isSubmitting={isSubmitting}
+              attachments={attachments}
+              hideAttachments={hideAttachments}
+              onExpand={onToolExpand}
+              toolCallId={toolCallId}
             />
           );
         } else if (toolCall.name === Tools.web_search) {
@@ -269,14 +359,10 @@ const Part = memo(function Part({
     } else if (toolCall.type === ToolCallTypes.CODE_INTERPRETER) {
       const code_interpreter = toolCall[ToolCallTypes.CODE_INTERPRETER];
       return (
-        <ToolCall
+        <CodeAnalyze
           initialProgress={toolCall.progress ?? 0.1}
-          isSubmitting={isSubmitting}
-          name={ToolCallTypes.CODE_INTERPRETER}
-          args={code_interpreter.input}
-          output={JSON.stringify(code_interpreter.outputs ?? [])}
-          attachments={attachments}
-          hideAttachments={hideAttachments}
+          code={code_interpreter.input}
+          outputs={code_interpreter.outputs ?? []}
           onExpand={onToolExpand}
         />
       );

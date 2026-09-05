@@ -33,7 +33,7 @@ jest.mock('@librechat/agents', () => ({
 }));
 
 import { Providers } from '@librechat/agents';
-import { EModelEndpoint, EToolResources, Tools, AgentCapabilities } from 'librechat-data-provider';
+import { EModelEndpoint, EToolResources, Tools } from 'librechat-data-provider';
 import type { IMongoFile } from '@librechat/data-schemas';
 import type { Agent } from 'librechat-data-provider';
 import type { ServerRequest, InitializeResultBase, EndpointTokenConfig } from '~/types';
@@ -784,7 +784,6 @@ describe('initializeAgent — stable and dynamic instruction fields', () => {
     const { agent, req, res, loadTools, db } = createMocks();
     agent.additional_instructions = 'Existing dynamic';
     agent.artifacts = 'enabled' as never;
-    req.config!.endpoints = { agents: { capabilities: [AgentCapabilities.artifacts] } };
 
     const result = await initializeAgent(
       {
@@ -801,36 +800,6 @@ describe('initializeAgent — stable and dynamic instruction fields', () => {
 
     expect(result.additional_instructions).toBe('Existing dynamic\n\nArtifact guidance');
   });
-
-  it.each([undefined, [], [AgentCapabilities.web_search]])(
-    'does not inject stale artifact guidance when capabilities are %j',
-    async (capabilities) => {
-      const { generateArtifactsPrompt } = jest.requireMock('~/prompts') as {
-        generateArtifactsPrompt: jest.Mock;
-      };
-      generateArtifactsPrompt.mockReturnValue('Artifact guidance');
-      const { agent, req, res, loadTools, db } = createMocks();
-      agent.artifacts = 'enabled' as never;
-      agent.additional_instructions = 'Existing dynamic';
-      req.config!.endpoints = { agents: { capabilities } };
-
-      const result = await initializeAgent(
-        {
-          req,
-          res,
-          agent,
-          loadTools,
-          endpointOption: { endpoint: EModelEndpoint.agents },
-          allowedProviders: new Set([Providers.OPENAI]),
-          isInitialAgent: true,
-        },
-        db,
-      );
-
-      expect(generateArtifactsPrompt).not.toHaveBeenCalled();
-      expect(result.additional_instructions).toBe('Existing dynamic');
-    },
-  );
 });
 
 describe('initializeAgent — attachment scoping', () => {

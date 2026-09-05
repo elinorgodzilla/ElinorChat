@@ -1,149 +1,438 @@
 import React from 'react';
+import { RecoilRoot } from 'recoil';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { EModelEndpoint } from 'librechat-data-provider';
-import { useFileHandlingNoChatContext } from '~/hooks';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { EModelEndpoint, EToolResources, Providers } from 'librechat-data-provider';
 import AttachFileMenu from '../AttachFileMenu';
 
 jest.mock('~/hooks', () => ({
-  useLocalize: () => (key: string) => key,
+  useAgentToolPermissions: jest.fn(),
+  useAgentCapabilities: jest.fn(),
+  useGetAgentsConfig: jest.fn(),
   useFileHandlingNoChatContext: jest.fn(),
+  useLocalize: jest.fn(),
 }));
-jest.mock('~/hooks/useKeyboardShortcuts', () => ({
-  useShortcutHint: (_key: string, label: string) => label,
-  useShortcutAriaKey: () => undefined,
+
+jest.mock('~/hooks/Files/useSharePointFileHandling', () => ({
+  __esModule: true,
+  default: jest.fn(),
+  useSharePointFileHandlingNoChatContext: jest.fn(),
 }));
-jest.mock('~/utils', () => ({ cn: (...classes: string[]) => classes.filter(Boolean).join(' ') }));
-jest.mock('@ariakit/react', () => ({
-  MenuButton: (props: React.ComponentProps<'button'>) => <button {...props} />,
+
+jest.mock('~/data-provider', () => ({
+  useGetStartupConfig: jest.fn(),
 }));
+
+jest.mock('~/components/SharePoint', () => ({
+  SharePointPickerDialog: () => null,
+}));
+
 jest.mock('@librechat/client', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const R = require('react');
   return {
-    FileUpload: React.forwardRef<
-      HTMLInputElement,
-      { children: React.ReactNode; handleFileChange: React.ChangeEventHandler<HTMLInputElement> }
-    >(({ children, handleFileChange }, ref) => (
-      <div>
-        {children}
-        <input type="file" ref={ref} data-testid="file-input" onChange={handleFileChange} />
-      </div>
-    )),
-    TooltipAnchor: ({ render }: { render: React.ReactNode }) => render,
-    AttachmentIcon: () => null,
-    DropdownPopup: ({
-      trigger,
-      items,
-    }: {
-      trigger: React.ReactNode;
-      items: { label: string; onClick: () => void }[];
-    }) => (
-      <div>
-        {trigger}
-        {items.map((item) => (
-          <button key={item.label} onClick={item.onClick}>
-            {item.label}
-          </button>
-        ))}
-      </div>
+    FileUpload: R.forwardRef((props, ref) =>
+      R.createElement(
+        'div',
+        { 'data-testid': 'file-upload' },
+        props.children,
+        R.createElement('input', {
+          ref,
+          multiple: true,
+          type: 'file',
+          'data-testid': 'file-input',
+          onChange: props.handleFileChange,
+        }),
+      ),
     ),
+    TooltipAnchor: (props) => props.render,
+    DropdownPopup: (props) =>
+      R.createElement(
+        'div',
+        null,
+        R.createElement('div', { onClick: () => props.setIsOpen(!props.isOpen) }, props.trigger),
+        props.isOpen &&
+          R.createElement(
+            'div',
+            { 'data-testid': 'dropdown-menu' },
+            props.items.map((item, idx) =>
+              R.createElement(
+                'button',
+                { key: idx, onClick: item.onClick, 'data-testid': `menu-item-${idx}` },
+                item.label,
+              ),
+            ),
+          ),
+      ),
+    AttachmentIcon: () => R.createElement('span', { 'data-testid': 'attachment-icon' }),
+    SharePointIcon: () => R.createElement('span', { 'data-testid': 'sharepoint-icon' }),
+    useToastContext: () => ({ showToast: jest.fn() }),
   };
 });
 
-const handleFileChange = jest.fn();
-function renderMenu(props: Partial<React.ComponentProps<typeof AttachFileMenu>> = {}) {
+jest.mock('@ariakit/react', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const R = require('react');
+  return {
+    MenuButton: (props) => R.createElement('button', props, props.children),
+  };
+});
+
+const mockUseAgentToolPermissions = jest.requireMock('~/hooks').useAgentToolPermissions;
+const mockUseAgentCapabilities = jest.requireMock('~/hooks').useAgentCapabilities;
+const mockUseGetAgentsConfig = jest.requireMock('~/hooks').useGetAgentsConfig;
+const mockUseFileHandlingNoChatContext = jest.requireMock('~/hooks').useFileHandlingNoChatContext;
+const mockUseLocalize = jest.requireMock('~/hooks').useLocalize;
+const mockUseSharePointFileHandling = jest.requireMock(
+  '~/hooks/Files/useSharePointFileHandling',
+).default;
+const mockUseSharePointFileHandlingNoChatContext = jest.requireMock(
+  '~/hooks/Files/useSharePointFileHandling',
+).useSharePointFileHandlingNoChatContext;
+const mockUseGetStartupConfig = jest.requireMock('~/data-provider').useGetStartupConfig;
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+function setupMocks(overrides: { provider?: string } = {}) {
+  const translations: Record<string, string> = {
+    com_files_upload_sharepoint: 'Upload from SharePoint',
+    com_sidepanel_attach_files: 'Attach Files',
+    com_ui_upload_code_environment: 'Upload to Code Environment',
+    com_ui_upload_file_search: 'Upload for File Search',
+    com_ui_upload_image_input: 'Upload Image',
+    com_ui_upload_ocr_text: 'Upload as Text',
+    com_ui_upload_provider: 'Upload to Provider',
+  };
+  mockUseLocalize.mockReturnValue((key: string) => translations[key] || key);
+  mockUseAgentCapabilities.mockReturnValue({
+    contextEnabled: false,
+    fileSearchEnabled: false,
+    codeEnabled: false,
+  });
+  mockUseGetAgentsConfig.mockReturnValue({ agentsConfig: {} });
+  mockUseFileHandlingNoChatContext.mockReturnValue({ handleFileChange: jest.fn() });
+  const sharePointReturnValue = {
+    handleSharePointFiles: jest.fn(),
+    isProcessing: false,
+    downloadProgress: 0,
+    error: null,
+  };
+  mockUseSharePointFileHandling.mockReturnValue(sharePointReturnValue);
+  mockUseSharePointFileHandlingNoChatContext.mockReturnValue(sharePointReturnValue);
+  mockUseGetStartupConfig.mockReturnValue({ data: { sharePointFilePickerEnabled: false } });
+  mockUseAgentToolPermissions.mockReturnValue({
+    fileSearchAllowedByAgent: false,
+    codeAllowedByAgent: false,
+    provider: overrides.provider ?? undefined,
+  });
+}
+
+function renderMenu(props: Record<string, unknown> = {}) {
   return render(
-    <AttachFileMenu
-      conversationId="conversation"
-      conversation={null}
-      files={new Map()}
-      setFiles={jest.fn()}
-      setFilesLoading={jest.fn()}
-      {...props}
-    />,
+    <QueryClientProvider client={queryClient}>
+      <RecoilRoot>
+        <AttachFileMenu
+          conversationId="test-convo"
+          files={new Map()}
+          setFiles={() => {}}
+          setFilesLoading={() => {}}
+          conversation={null}
+          {...props}
+        />
+      </RecoilRoot>
+    </QueryClientProvider>,
   );
 }
 
-describe('direct attachment menu', () => {
-  beforeEach(() => {
-    jest.mocked(useFileHandlingNoChatContext).mockReturnValue({
-      handleFileChange,
-      handleFiles: jest.fn(),
-      abortUpload: jest.fn(),
-      setFiles: jest.fn(),
-      files: new Map(),
+function openMenu() {
+  fireEvent.click(screen.getByRole('button', { name: /attach file options/i }));
+}
+
+describe('AttachFileMenu', () => {
+  beforeEach(jest.clearAllMocks);
+
+  describe('Upload to Provider vs Upload Image', () => {
+    it('shows "Upload to Provider" when endpointType is custom (resolved from agent provider)', () => {
+      setupMocks({ provider: 'Moonshot' });
+      renderMenu({ endpointType: EModelEndpoint.custom });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+      expect(screen.queryByText('Upload Image')).not.toBeInTheDocument();
+    });
+
+    it('shows "Upload to Provider" when endpointType is openAI', () => {
+      setupMocks({ provider: EModelEndpoint.openAI });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+    });
+
+    it('shows "Upload to Provider" when endpointType is anthropic', () => {
+      setupMocks({ provider: EModelEndpoint.anthropic });
+      renderMenu({ endpointType: EModelEndpoint.anthropic });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+    });
+
+    it('shows "Upload to Provider" when endpointType is google', () => {
+      setupMocks({ provider: Providers.GOOGLE });
+      renderMenu({ endpointType: EModelEndpoint.google });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+    });
+
+    it('shows "Upload Image" when endpointType is agents (no provider resolution)', () => {
+      setupMocks();
+      renderMenu({ endpointType: EModelEndpoint.agents });
+      openMenu();
+      expect(screen.getByText('Upload Image')).toBeInTheDocument();
+      expect(screen.queryByText('Upload to Provider')).not.toBeInTheDocument();
+    });
+
+    it('shows "Upload Image" when neither endpointType nor provider supports documents', () => {
+      setupMocks({ provider: 'unknown-provider' });
+      renderMenu({ endpointType: 'unknown-type' });
+      openMenu();
+      expect(screen.getByText('Upload Image')).toBeInTheDocument();
+    });
+
+    it('shows "Upload to Provider" for azureOpenAI with useResponsesApi', () => {
+      setupMocks({ provider: EModelEndpoint.azureOpenAI });
+      renderMenu({ endpointType: EModelEndpoint.azureOpenAI, useResponsesApi: true });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+    });
+
+    it('shows "Upload to Provider" for azureOpenAI endpointType with useResponsesApi', () => {
+      setupMocks();
+      renderMenu({
+        endpoint: EModelEndpoint.agents,
+        endpointType: EModelEndpoint.azureOpenAI,
+        useResponsesApi: true,
+      });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+    });
+
+    it('shows "Upload Image" for azureOpenAI without useResponsesApi', () => {
+      setupMocks({ provider: EModelEndpoint.azureOpenAI });
+      renderMenu({ endpointType: EModelEndpoint.azureOpenAI, useResponsesApi: false });
+      openMenu();
+      expect(screen.getByText('Upload Image')).toBeInTheDocument();
     });
   });
 
-  it.each([EModelEndpoint.openAI, EModelEndpoint.anthropic, EModelEndpoint.custom])(
-    'offers only direct provider upload for %s',
-    (endpointType) => {
-      renderMenu({ endpointType });
-      expect(screen.getByText('com_ui_upload_provider')).toBeInTheDocument();
-      expect(screen.getAllByRole('button')).toHaveLength(2);
-      expect(screen.queryByText('com_ui_upload_file_search')).not.toBeInTheDocument();
-      expect(screen.queryByText('com_ui_upload_code_environment')).not.toBeInTheDocument();
-      expect(screen.queryByText('com_ui_upload_ocr_text')).not.toBeInTheDocument();
-    },
-  );
-
-  it('keeps the direct image picker for other endpoints', () => {
-    renderMenu();
-    expect(screen.getByText('com_ui_upload_image_input')).toBeInTheDocument();
-    const click = jest.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
-      this: HTMLInputElement,
-    ) {
-      expect(this.accept).toBe('image/*,.heif,.heic');
+  describe('agent provider resolution scenario', () => {
+    it('shows "Upload to Provider" when agents endpoint has custom endpointType from provider', () => {
+      setupMocks({ provider: 'Moonshot' });
+      renderMenu({
+        endpoint: EModelEndpoint.agents,
+        endpointType: EModelEndpoint.custom,
+      });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText('com_ui_upload_image_input'));
-    expect(click).toHaveBeenCalledTimes(1);
+
+    it('shows "Upload Image" when agents endpoint has no resolved provider type', () => {
+      setupMocks();
+      renderMenu({
+        endpoint: EModelEndpoint.agents,
+        endpointType: EModelEndpoint.agents,
+      });
+      openMenu();
+      expect(screen.getByText('Upload Image')).toBeInTheDocument();
+    });
   });
 
-  it.each([
-    { endpointType: EModelEndpoint.google, expected: 'video/*' },
-    { endpointType: EModelEndpoint.bedrock, expected: '.docx' },
-    { endpointType: EModelEndpoint.azureOpenAI, useResponsesApi: true, expected: '.pdf' },
-  ])('preserves direct provider file types: %j', ({ expected, ...props }) => {
-    renderMenu(props);
-    const click = jest.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
-      this: HTMLInputElement,
-    ) {
-      expect(this.accept).toContain(expected);
+  describe('Basic Rendering', () => {
+    it('renders the attachment button', () => {
+      setupMocks();
+      renderMenu();
+      expect(screen.getByRole('button', { name: /attach file options/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText('com_ui_upload_provider'));
-    expect(click).toHaveBeenCalledTimes(1);
+
+    it('is disabled when disabled prop is true', () => {
+      setupMocks();
+      renderMenu({ disabled: true });
+      expect(screen.getByRole('button', { name: /attach file options/i })).toBeDisabled();
+    });
+
+    it('is not disabled when disabled prop is false', () => {
+      setupMocks();
+      renderMenu({ disabled: false });
+      expect(screen.getByRole('button', { name: /attach file options/i })).not.toBeDisabled();
+    });
   });
 
-  it('retains configured picker MIME restrictions', () => {
-    renderMenu({
-      endpointType: EModelEndpoint.openAI,
-      endpointFileConfig: { supportedMimeTypes: [/^application\/pdf$/] },
+  describe('Agent Capabilities', () => {
+    it('shows OCR Text option when context is enabled', () => {
+      setupMocks();
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: true,
+        fileSearchEnabled: false,
+        codeEnabled: false,
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload as Text')).toBeInTheDocument();
     });
-    const click = jest.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(function (
-      this: HTMLInputElement,
-    ) {
-      expect(this.accept).toContain('application/pdf');
-      expect(this.accept).not.toContain('image/*');
+
+    it('shows File Search option when enabled and allowed by agent', () => {
+      setupMocks();
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: false,
+        fileSearchEnabled: true,
+        codeEnabled: false,
+      });
+      mockUseAgentToolPermissions.mockReturnValue({
+        fileSearchAllowedByAgent: true,
+        codeAllowedByAgent: false,
+        provider: undefined,
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload for File Search')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText('com_ui_upload_provider'));
-    expect(click).toHaveBeenCalledTimes(1);
+
+    it('does NOT show File Search when enabled but not allowed by agent', () => {
+      setupMocks();
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: false,
+        fileSearchEnabled: true,
+        codeEnabled: false,
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.queryByText('Upload for File Search')).not.toBeInTheDocument();
+    });
+
+    it('shows Code Files option when enabled and allowed by agent', () => {
+      setupMocks();
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: false,
+        fileSearchEnabled: false,
+        codeEnabled: true,
+      });
+      mockUseAgentToolPermissions.mockReturnValue({
+        fileSearchAllowedByAgent: false,
+        codeAllowedByAgent: true,
+        provider: undefined,
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload to Code Environment')).toBeInTheDocument();
+    });
+
+    it('shows all options when all capabilities are enabled', () => {
+      setupMocks();
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: true,
+        fileSearchEnabled: true,
+        codeEnabled: true,
+      });
+      mockUseAgentToolPermissions.mockReturnValue({
+        fileSearchAllowedByAgent: true,
+        codeAllowedByAgent: true,
+        provider: undefined,
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload to Provider')).toBeInTheDocument();
+      expect(screen.getByText('Upload as Text')).toBeInTheDocument();
+      expect(screen.getByText('Upload for File Search')).toBeInTheDocument();
+      expect(screen.getByText('Upload to Code Environment')).toBeInTheDocument();
+    });
+
+    it('passes File Search resource when the file input changes before React state commits', () => {
+      setupMocks();
+      const handleFileChange = jest.fn();
+      mockUseFileHandlingNoChatContext.mockReturnValue({ handleFileChange });
+      mockUseAgentCapabilities.mockReturnValue({
+        contextEnabled: false,
+        fileSearchEnabled: true,
+        codeEnabled: false,
+      });
+      mockUseAgentToolPermissions.mockReturnValue({
+        fileSearchAllowedByAgent: true,
+        codeAllowedByAgent: false,
+        provider: undefined,
+      });
+      const originalClick = HTMLInputElement.prototype.click;
+      const file = new File(['data'], 'sheet.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+
+      HTMLInputElement.prototype.click = function click() {
+        Object.defineProperty(this, 'files', {
+          configurable: true,
+          value: [file],
+        });
+        fireEvent.change(this);
+      };
+
+      try {
+        renderMenu({ endpointType: EModelEndpoint.openAI });
+        openMenu();
+        fireEvent.click(screen.getByText('Upload to Provider'));
+        fireEvent.click(screen.getByText('Upload for File Search'));
+      } finally {
+        HTMLInputElement.prototype.click = originalClick;
+      }
+
+      expect(handleFileChange).toHaveBeenNthCalledWith(1, expect.any(Object), undefined);
+      expect(handleFileChange).toHaveBeenNthCalledWith(
+        2,
+        expect.any(Object),
+        EToolResources.file_search,
+      );
+    });
   });
 
-  it('sends input changes directly without a tool resource', () => {
-    renderMenu({ endpointType: EModelEndpoint.openAI });
-    fireEvent.change(screen.getByTestId('file-input'), {
-      target: { files: [new File(['image'], 'image.png', { type: 'image/png' })] },
+  describe('SharePoint Integration', () => {
+    it('shows SharePoint option when enabled', () => {
+      setupMocks();
+      mockUseGetStartupConfig.mockReturnValue({
+        data: { sharePointFilePickerEnabled: true },
+      });
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.getByText('Upload from SharePoint')).toBeInTheDocument();
     });
-    expect(handleFileChange).toHaveBeenCalledWith(expect.any(Object));
+
+    it('does NOT show SharePoint option when disabled', () => {
+      setupMocks();
+      renderMenu({ endpointType: EModelEndpoint.openAI });
+      openMenu();
+      expect(screen.queryByText('Upload from SharePoint')).not.toBeInTheDocument();
+    });
   });
 
-  it.each([{ disabled: true }, { endpointFileConfig: { disabled: true } }])(
-    'respects disabled uploads: %j',
-    (props) => {
-      renderMenu(props);
-      expect(screen.getByRole('button', { name: 'com_sidepanel_attach_files' })).toBeDisabled();
-      const click = jest.spyOn(HTMLInputElement.prototype, 'click');
-      fireEvent.click(screen.getByText('com_ui_upload_image_input'));
-      expect(click).not.toHaveBeenCalled();
-    },
-  );
+  describe('Edge Cases', () => {
+    it('handles undefined endpoint and provider gracefully', () => {
+      setupMocks();
+      renderMenu({ endpoint: undefined, endpointType: undefined });
+      const button = screen.getByRole('button', { name: /attach file options/i });
+      expect(button).toBeInTheDocument();
+      fireEvent.click(button);
+      expect(screen.getByText('Upload Image')).toBeInTheDocument();
+    });
+
+    it('handles null endpoint and provider gracefully', () => {
+      setupMocks();
+      renderMenu({ endpoint: null, endpointType: null });
+      expect(screen.getByRole('button', { name: /attach file options/i })).toBeInTheDocument();
+    });
+
+    it('handles missing agentId gracefully', () => {
+      setupMocks();
+      renderMenu({ agentId: undefined, endpointType: EModelEndpoint.openAI });
+      expect(screen.getByRole('button', { name: /attach file options/i })).toBeInTheDocument();
+    });
+
+    it('handles empty string agentId', () => {
+      setupMocks();
+      renderMenu({ agentId: '', endpointType: EModelEndpoint.openAI });
+      expect(screen.getByRole('button', { name: /attach file options/i })).toBeInTheDocument();
+    });
+  });
 });

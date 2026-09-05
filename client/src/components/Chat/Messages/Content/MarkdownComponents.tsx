@@ -1,9 +1,10 @@
 import React, { memo, useMemo, useRef, useEffect } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useToastContext } from '@librechat/client';
-import { apiBaseUrl } from 'librechat-data-provider';
+import { PermissionTypes, Permissions, apiBaseUrl } from 'librechat-data-provider';
 import Mermaid, { MermaidErrorBoundary } from '~/components/Messages/Content/Mermaid';
 import CodeBlock from '~/components/Messages/Content/CodeBlock';
+import useHasAccess from '~/hooks/Roles/useHasAccess';
 import { useFileDownload } from '~/data-provider';
 import { useCodeBlockContext } from '~/Providers';
 import { handleDoubleClick, triggerDownload } from '~/utils';
@@ -30,6 +31,10 @@ export const code: React.ElementType = memo(function MarkdownCode({
   className,
   children,
 }: TCodeProps) {
+  const canRunCode = useHasAccess({
+    permissionType: PermissionTypes.RUN_CODE,
+    permission: Permissions.USE,
+  });
   const match = /language-(\w+)/.exec(className ?? '');
   const lang = match && match[1];
   const isMath = lang === 'math';
@@ -59,7 +64,14 @@ export const code: React.ElementType = memo(function MarkdownCode({
       </code>
     );
   } else {
-    return <CodeBlock lang={lang ?? 'text'} codeChildren={children} blockIndex={blockIndex} />;
+    return (
+      <CodeBlock
+        lang={lang ?? 'text'}
+        codeChildren={children}
+        blockIndex={blockIndex}
+        allowExecution={canRunCode}
+      />
+    );
   }
 });
 code.displayName = 'MarkdownCode';
@@ -83,7 +95,7 @@ export const codeNoExecution: React.ElementType = memo(function MarkdownCodeNoEx
       </code>
     );
   } else {
-    return <CodeBlock lang={lang ?? 'text'} codeChildren={children} />;
+    return <CodeBlock lang={lang ?? 'text'} codeChildren={children} allowExecution={false} />;
   }
 });
 codeNoExecution.displayName = 'MarkdownCodeNoExecution';
@@ -217,16 +229,6 @@ export const img: React.ElementType = memo(function MarkdownImage({
     return `${baseURL}${src}`;
   }, [src, baseURL]);
 
-  return (
-    <img
-      src={fixedSrc}
-      alt={alt}
-      title={title}
-      className={className}
-      style={style}
-      loading="lazy"
-      decoding="async"
-    />
-  );
+  return <img src={fixedSrc} alt={alt} title={title} className={className} style={style} />;
 });
 img.displayName = 'MarkdownImage';
