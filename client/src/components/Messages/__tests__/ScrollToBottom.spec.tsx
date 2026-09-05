@@ -1,6 +1,6 @@
 import { RecoilRoot } from 'recoil';
 import userEvent from '@testing-library/user-event';
-import { render, screen, within } from 'test/layout-test-utils';
+import { render, screen } from 'test/layout-test-utils';
 import type { FormEvent } from 'react';
 import translationEn from '~/locales/en/translation.json';
 import translationDe from '~/locales/de/translation.json';
@@ -20,13 +20,14 @@ describe('ScrollToBottom', () => {
   it.each([
     ['en', translationEn.com_ui_scroll_to_bottom],
     ['de', translationDe.com_ui_scroll_to_bottom],
-  ])('renders a visible label and matching accessible name in %s', async (language, label) => {
+  ])('renders only an arrow with a localized accessible name in %s', async (language, label) => {
     await changeLanguageSafely(language);
     render(<ScrollToBottom scrollHandler={jest.fn()} />);
 
     const button = screen.getByRole('button', { name: label });
-    expect(within(button).getByText(label)).toBeVisible();
+    expect(button.textContent).toBe('');
     expect(button).toHaveAttribute('aria-label', label);
+    expect(button.querySelector('svg')).toBeVisible();
     expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 

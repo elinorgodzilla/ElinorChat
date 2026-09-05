@@ -22,11 +22,10 @@ export default function ScrollToBottom({ scrollHandler }: Props) {
       <button
         type="button"
         onClick={scrollHandler}
-        className="chat-scroll-button pointer-events-auto cursor-pointer text-sm text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy"
+        className="chat-scroll-button pointer-events-auto cursor-pointer text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-xheavy"
         aria-label={localize('com_ui_scroll_to_bottom')}
       >
         <ChevronDown className="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span>{localize('com_ui_scroll_to_bottom')}</span>
       </button>
     </div>
   );
