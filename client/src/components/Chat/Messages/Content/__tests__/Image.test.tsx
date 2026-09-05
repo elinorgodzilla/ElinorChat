@@ -57,7 +57,7 @@ describe('Image', () => {
       [1792, 896, 'min(45vh, 50vw, 256px)'],
       [512, 512, 'min(45vh, 100vw, 512px)'],
     ])('preserves reserved space before and after loading %i x %i', (width, height, expected) => {
-      const { rerender } = render(<Image {...defaultProps} width={width} height={height} />);
+      render(<Image {...defaultProps} width={width} height={height} />);
       const button = screen.getByRole('button');
       const img = screen.getByRole('img');
 
@@ -67,7 +67,6 @@ describe('Image', () => {
       expect(screen.getByTestId('skeleton')).toHaveAttribute('aria-hidden', 'true');
 
       fireEvent.load(img);
-      rerender(<Image {...defaultProps} width={width} height={height} />);
 
       expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
       expect(button).toHaveStyle({ height: expected });
@@ -177,15 +176,28 @@ describe('Image', () => {
       expect(skeleton.className).toContain('inset-0');
     });
 
-    it('marks URL as painted on load and skips skeleton on rerender', () => {
-      const { rerender } = render(<Image {...defaultProps} width={512} height={512} />);
+    it('removes the animated skeleton immediately when the image loads', () => {
+      render(<Image {...defaultProps} width={512} height={512} />);
       const img = screen.getByRole('img');
 
       expect(screen.getByTestId('skeleton')).toBeInTheDocument();
 
       fireEvent.load(img);
 
-      // Rerender same component — skeleton should not show (URL painted)
+      expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+    });
+
+    it('tracks loading by URL when the image source changes', () => {
+      const { rerender } = render(<Image {...defaultProps} width={512} height={512} />);
+      fireEvent.load(screen.getByRole('img'));
+      expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+
+      rerender(<Image {...defaultProps} imagePath="/images/next.png" width={512} height={512} />);
+      expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+
+      fireEvent.load(screen.getByRole('img'));
+      expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+
       rerender(<Image {...defaultProps} width={512} height={512} />);
       expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
     });
