@@ -105,7 +105,11 @@ const BedrockConfig = ({
     return <>{fields}</>;
   };
 
-  return <form className="flex-wrap">{renderFields()}</form>;
+  return (
+    <form className="flex-wrap" autoComplete="off">
+      {renderFields()}
+    </form>
+  );
 };
 
 export default BedrockConfig;

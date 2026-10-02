@@ -11,7 +11,7 @@ const CustomEndpoint = ({
 }) => {
   const { control } = useFormContext();
   return (
-    <form className="flex-wrap">
+    <form className="flex-wrap" autoComplete="off">
       <Controller
         name="apiKey"
         control={control}
@@ -22,7 +22,6 @@ const CustomEndpoint = ({
             label={`${endpoint} API Key`}
             labelClassName="mb-1"
             inputClassName="mb-2"
-            secret
           />
         )}
       />

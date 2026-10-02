@@ -228,6 +228,8 @@ const SetKeyDialog = ({
     if (formSet.has(endpoint) || formSet.has(endpointType ?? '')) {
       // TODO: handle other user provided options besides baseURL and apiKey
       methods.handleSubmit((data) => {
+        data.apiKey = data.apiKey.trim();
+        data.azureOpenAIApiKey = data.azureOpenAIApiKey.trim();
         const isAzure = configuredEndpoint === EModelEndpoint.azureOpenAI;
         const isBedrock = configuredEndpoint === EModelEndpoint.bedrock;
         const isOpenAIBase =
@@ -357,7 +359,7 @@ const SetKeyDialog = ({
       return;
     }
 
-    saveKey(userKey);
+    saveKey(userKey.trim());
     setUserKey('');
   };
 

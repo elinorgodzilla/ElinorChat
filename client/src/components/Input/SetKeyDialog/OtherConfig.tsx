@@ -11,7 +11,6 @@ const OtherConfig = ({ userKey, setUserKey, endpoint }: TConfigProps) => {
       value={userKey ?? ''}
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserKey(e.target.value ?? '')}
       label={localize('com_endpoint_config_key_name')}
-      secret
     />
   );
 };

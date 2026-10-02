@@ -12,7 +12,7 @@ const OpenAIConfig = ({
   const { control } = useFormContext();
   const isAzure = endpoint === EModelEndpoint.azureOpenAI;
   return (
-    <form className="flex-wrap">
+    <form className="flex-wrap" autoComplete="off">
       {!isAzure && (
         <Controller
           name="apiKey"
@@ -24,7 +24,6 @@ const OpenAIConfig = ({
               label={`${isAzure ? 'Azure q' : ''}OpenAI API Key`}
               labelClassName="mb-1"
               inputClassName="mb-2"
-              secret
             />
           )}
         />
@@ -40,7 +39,6 @@ const OpenAIConfig = ({
                 {...field}
                 label={'Azure OpenAI API Key'}
                 labelClassName="mb-1"
-                secret
               />
             )}
           />
