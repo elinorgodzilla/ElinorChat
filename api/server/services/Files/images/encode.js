@@ -95,7 +95,7 @@ const blobStorageSources = new Set([
  * @param {Providers | EModelEndpoint | string} [params.provider] - The provider for the image
  * @param {string} [params.endpoint] - Optional: The endpoint for the image
  * @param {string} [mode] - Optional: The endpoint mode for the image.
- * @returns {Promise<{ files: MongoFile[]; image_urls: MessageContentImageUrl[] }>} - A promise that resolves to the result object containing the encoded images and file details.
+ * @returns {Promise<{ files: MongoFile[]; image_urls: MessageContentImageUrl[]; fileContext: string }>}
  */
 async function encodeAndFormat(req, files, params, mode) {
   const { provider, endpoint } = params;
@@ -103,10 +103,11 @@ async function encodeAndFormat(req, files, params, mode) {
   const promises = [];
   /** @type {Record<FileSources, Pick<ReturnType<typeof getStrategyFunctions>, 'prepareImagePayload' | 'getDownloadStream'>>} */
   const encodingMethods = {};
-  /** @type {{ files: MongoFile[]; image_urls: MessageContentImageUrl[] }} */
+  /** @type {{ files: MongoFile[]; image_urls: MessageContentImageUrl[]; fileContext: string }} */
   const result = {
     files: [],
     image_urls: [],
+    fileContext: '',
   };
 
   if (!files || !files.length) {
@@ -161,7 +162,7 @@ async function encodeAndFormat(req, files, params, mode) {
 
   const detail = req.body.imageDetail ?? ImageDetail.auto;
 
-  /** @type {Array<[MongoFile, string]>} */
+  /** @type {Array<[MongoFile, string | null, string?]>} */
   const formattedImages = await Promise.all(promises);
   promises.length = 0;
 
@@ -176,7 +177,10 @@ async function encodeAndFormat(req, files, params, mode) {
     configuredFileSizeLimit = endpointConfig?.fileSizeLimit;
   }
 
-  for (const [file, imageContent] of formattedImages) {
+  for (const [file, imageContent, fileContext] of formattedImages) {
+    if (fileContext) {
+      result.fileContext += `${result.fileContext ? '\n' : ''}${fileContext}`;
+    }
     const fileMetadata = {
       type: file.type,
       file_id: file.file_id,

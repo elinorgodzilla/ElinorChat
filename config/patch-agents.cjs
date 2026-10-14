@@ -38,6 +38,12 @@ function patchAgents() {
   for (const [format, extension] of Object.entries({ cjs: 'cjs', esm: 'mjs' })) {
     patchFile(path.join(packageRoot, 'dist', format, 'llm', 'google', `index.${extension}`), [
       {
+        anchor:
+          'return this.model.startsWith("gemini-1.5") || this.model.startsWith("gemini-2") || this.model.startsWith("gemma-3-") && !this.model.startsWith("gemma-3-1b") || this.model.startsWith("gemini-3");',
+        replacement:
+          'return /^gemini-?4(?:[.-]|$)/i.test(this.model) || this.model.startsWith("gemini-1.5") || this.model.startsWith("gemini-2") || this.model.startsWith("gemma-3-") && !this.model.startsWith("gemma-3-1b") || this.model.startsWith("gemini-3");',
+      },
+      {
         anchor: 'this.streaming = fields.streaming ?? this.streaming;',
         replacement:
           'this.streaming = fields.streaming ?? this.streaming;\n\t\tthis.disableStreaming = fields.disableStreaming ?? this.disableStreaming;',

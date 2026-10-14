@@ -386,7 +386,7 @@ const chatV1 = async (req, res) => {
         role: 'user',
         content: '',
       };
-      const { files, image_urls } = await encodeAndFormat(
+      const { files, image_urls, fileContext } = await encodeAndFormat(
         req,
         attachments,
         {
@@ -395,8 +395,13 @@ const chatV1 = async (req, res) => {
         VisionModes.generative,
       );
       visionMessage.image_urls = image_urls.length ? image_urls : undefined;
+      if (fileContext) {
+        body.additional_instructions = [body.additional_instructions, fileContext]
+          .filter(Boolean)
+          .join('\n');
+      }
       if (!visionMessage.image_urls?.length) {
-        return;
+        return files;
       }
 
       const imageCount = visionMessage.image_urls.length;

@@ -764,6 +764,151 @@ describe('getGoogleConfig', () => {
     });
   });
 
+  describe.each(['gemini-4', 'gemini4', 'gemini-4.0-pro', 'gemini4-flash', 'GeMiNi4.1-Pro'])(
+    'Gemini 4 native thinking: %s',
+    (model) => {
+      const credentials = { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' };
+
+      it.each([false, true])('uses qualitative thinking with forceVertex=%s', (forceVertex) => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          forceVertex,
+          projectId: 'test-project',
+          modelOptions: { model, thinkingLevel: ThinkingLevel.low, thinkingBudget: 4096 },
+        });
+        expect(llmConfig).toHaveProperty('model', model);
+        expect(llmConfig).toHaveProperty('thinkingConfig', {
+          includeThoughts: true,
+          thinkingLevel: 'LOW',
+        });
+        expect(llmConfig).not.toHaveProperty('thinkingBudget');
+        if (forceVertex) {
+          expect(llmConfig).toHaveProperty('includeThoughts', true);
+        }
+      });
+
+      it('defaults to includeThoughts without inventing a thinking level', () => {
+        const { llmConfig } = getGoogleConfig(credentials, { modelOptions: { model } });
+        expect(llmConfig).toHaveProperty('thinkingConfig', { includeThoughts: true });
+      });
+
+      it.each([false, true])('respects disabled thinking with forceVertex=%s', (forceVertex) => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          forceVertex,
+          projectId: 'test-project',
+          modelOptions: { model, thinking: false, thinkingLevel: ThinkingLevel.high },
+          addParams: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'HIGH' } },
+        });
+        expect(llmConfig).not.toHaveProperty('thinkingConfig');
+        expect(llmConfig).not.toHaveProperty('includeThoughts');
+      });
+
+      it.each([
+        { dropParams: ['thinkingConfig'] },
+        { dropParams: ['includeThoughts', 'thinkingLevel'] },
+      ])('respects dropped thinking fields: $dropParams', ({ dropParams }) => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          forceVertex: true,
+          projectId: 'test-project',
+          modelOptions: { model, thinkingLevel: ThinkingLevel.high },
+          addParams: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'LOW' } },
+          dropParams,
+        });
+        expect(llmConfig).not.toHaveProperty('thinkingConfig');
+        expect(llmConfig).not.toHaveProperty('includeThoughts');
+      });
+
+      it.each(['thinkingLevel', 'includeThoughts'])('drops nested %s', (field) => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          modelOptions: { model, thinkingLevel: ThinkingLevel.high },
+          dropParams: [field],
+        });
+        expect(llmConfig).toHaveProperty(
+          'thinkingConfig',
+          field === 'thinkingLevel' ? { includeThoughts: true } : { thinkingLevel: 'HIGH' },
+        );
+      });
+
+      it('preserves explicit thinking and generation overrides, stripping numeric budgets', () => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          forceVertex: true,
+          projectId: 'test-project',
+          modelOptions: { model, thinkingLevel: ThinkingLevel.high, temperature: 0.7 },
+          defaultParams: { thinkingConfig: { thinkingLevel: 'MEDIUM' }, maxOutputTokens: 2048 },
+          addParams: {
+            thinkingConfig: {
+              includeThoughts: false,
+              thinkingLevel: 'minimal',
+              thinkingBudget: 5000,
+            },
+            temperature: 0.2,
+          },
+        });
+        expect(llmConfig).toHaveProperty('thinkingConfig', {
+          includeThoughts: false,
+          thinkingLevel: 'MINIMAL',
+        });
+        expect(llmConfig).toHaveProperty('includeThoughts', false);
+        expect(llmConfig).toHaveProperty('temperature', 0.2);
+        expect(llmConfig).toHaveProperty('maxOutputTokens', 2048);
+      });
+
+      it.each([null, {}, { thinkingLevel: 'invalid' }])(
+        'omits empty or invalid thinking overrides: %j',
+        (thinkingConfig) => {
+          const { llmConfig } = getGoogleConfig(credentials, {
+            forceVertex: true,
+            projectId: 'test-project',
+            modelOptions: { model },
+            addParams: { thinkingConfig },
+          });
+          expect(llmConfig).not.toHaveProperty('thinkingConfig');
+          expect(llmConfig).not.toHaveProperty('includeThoughts');
+        },
+      );
+
+      it('uses the final model when overridden from Gemini 2 to Gemini 4', () => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          modelOptions: {
+            model: 'gemini-2.5-flash',
+            thinkingBudget: 4096,
+            thinkingLevel: ThinkingLevel.low,
+          },
+          addParams: { model },
+        });
+        expect(llmConfig).toHaveProperty('model', model);
+        expect(llmConfig).toHaveProperty('thinkingConfig', {
+          includeThoughts: true,
+          thinkingLevel: 'LOW',
+        });
+      });
+
+      it('uses the numeric budget when overridden from Gemini 4 to Gemini 2', () => {
+        const { llmConfig } = getGoogleConfig(credentials, {
+          modelOptions: { model, thinkingBudget: 4096, thinkingLevel: ThinkingLevel.high },
+          addParams: { model: 'gemini-2.5-flash' },
+        });
+        expect(llmConfig).toHaveProperty('thinkingConfig', {
+          includeThoughts: true,
+          thinkingBudget: 4096,
+        });
+      });
+    },
+  );
+
+  it.each(['unknown-model', 'gemini4foo', 'gemini40-pro', 'not-gemini4'])(
+    'does not give unknown alias %s qualitative thinking',
+    (model) => {
+      const { llmConfig } = getGoogleConfig(
+        { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' },
+        { modelOptions: { model, thinkingBudget: 1024, thinkingLevel: ThinkingLevel.high } },
+      );
+      expect(llmConfig).toHaveProperty('thinkingConfig', {
+        includeThoughts: true,
+        thinkingBudget: 1024,
+      });
+    },
+  );
+
   describe('Gemini 3 Thinking Level', () => {
     it('should use thinkingLevel for Gemini 3 models with Google provider', () => {
       const credentials = {

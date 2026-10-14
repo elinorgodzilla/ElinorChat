@@ -1,5 +1,7 @@
+import { promises as fs } from 'node:fs';
 import type { IMongoFile } from '@librechat/data-schemas';
 import type { SteerMediaClient, SteerFileFetcher } from '../media';
+import { readLocalImage } from '../../../files/unavailable';
 import { buildSteerMedia, stampSteerPartMedia } from '../media';
 
 jest.spyOn(console, 'log').mockImplementation();
@@ -64,6 +66,31 @@ const steerItem = (files: Array<{ file_id: string }>, text = 'look at this') => 
 });
 
 describe('buildSteerMedia', () => {
+  it('includes a missing local image notice in live media while retaining its ref', async () => {
+    jest
+      .spyOn(fs, 'readFile')
+      .mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    const client = createClient();
+    client.processAttachments.mockImplementation(async (pseudo, files: IMongoFile[]) => {
+      const result = await readLocalImage(files[0].filepath, files[0]);
+      pseudo.fileContext = result.fileContext;
+      return files;
+    });
+    const item = steerItem([{ file_id: 'f1' }]);
+    const result = await buildSteerMedia({
+      client,
+      user,
+      item,
+      getFiles: async () => [imageDoc],
+    });
+    expect(result?.content).toEqual([
+      { type: 'text', text: expect.stringContaining('Attachment unavailable: shot.png') },
+    ]);
+    expect(result?.files?.[0].file_id).toBe('f1');
+    expect(item.text).toBe('look at this');
+    expect(item.files).toEqual([{ file_id: 'f1' }]);
+  });
+
   it('fetches owner-scoped files and assembles text + media content', async () => {
     const getFiles: SteerFileFetcher = jest.fn(async () => [imageDoc]);
     const client = createClient({ image_urls: [imagePart] });
@@ -159,6 +186,51 @@ describe('buildSteerMedia', () => {
 });
 
 describe('stampSteerPartMedia', () => {
+  it('replays unavailable context without modifying persisted steer parts', async () => {
+    const fileContext = '[Attachment unavailable: shot.png. The stored image could not be found.]';
+    const client = createClient({ fileContext });
+    const part = Object.freeze({
+      type: 'steer',
+      steer: 'look at this',
+      steerId: 'missing-steer',
+      files: [{ file_id: 'f1' }],
+    });
+    const content = [part];
+    Object.freeze(content);
+    const message = { role: 'assistant', content };
+    const stamped = await stampSteerPartMedia({
+      client,
+      user,
+      payload: [message],
+      docsById: new Map([['f1', imageDoc]]),
+      getFiles: async () => [],
+    });
+    expect(stamped[0].media).toEqual([{ type: 'text', text: `${fileContext}\nlook at this` }]);
+    expect(part).not.toHaveProperty('media');
+    expect(part.files).toEqual([{ file_id: 'f1' }]);
+    expect(message.content).not.toBe(content);
+  });
+
+  it.each(['EACCES', 'EIO', 'ENOENT'])(
+    'propagates uncategorized %s encoder errors',
+    async (code) => {
+      const client = createClient();
+      const error = Object.assign(new Error('encoding failed'), { code });
+      client.processAttachments.mockRejectedValueOnce(error);
+      await expect(
+        stampSteerPartMedia({
+          client,
+          user,
+          payload: [
+            { role: 'assistant', content: [{ type: 'steer', files: [{ file_id: 'f1' }] }] },
+          ],
+          docsById: new Map([['f1', imageDoc]]),
+          getFiles: async () => [],
+        }),
+      ).rejects.toBe(error);
+    },
+  );
+
   it('stamps media onto steer parts immutably with one batched fetch', async () => {
     const getFiles: SteerFileFetcher = jest.fn(async () => [imageDoc]);
     const client = createClient({ image_urls: [imagePart] });

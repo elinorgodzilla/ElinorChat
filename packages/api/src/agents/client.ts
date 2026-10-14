@@ -89,13 +89,19 @@ export function prependFileContext(
     return;
   }
 
-  const textPart = formattedMessage.content.find((part) => part.type === ContentTypes.TEXT);
+  const textIndex = formattedMessage.content.findIndex((part) => part.type === ContentTypes.TEXT);
+  const textPart = formattedMessage.content[textIndex];
   if (textPart != null && typeof textPart.text === 'string') {
-    textPart.text = `${fileContext}\n${textPart.text}`;
+    const content = [...formattedMessage.content];
+    content[textIndex] = { ...textPart, text: `${fileContext}\n${textPart.text}` };
+    formattedMessage.content = content;
     return;
   }
 
-  formattedMessage.content.unshift({ type: ContentTypes.TEXT, text: fileContext });
+  formattedMessage.content = [
+    { type: ContentTypes.TEXT, text: fileContext },
+    ...formattedMessage.content,
+  ];
 }
 
 /**

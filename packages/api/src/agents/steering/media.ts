@@ -202,28 +202,20 @@ export async function stampSteerPartMedia({
       if (partDocs.length === 0) {
         return null;
       }
-      try {
-        const { content } = await encodeSteerContent({
-          client,
-          text: (part[ContentTypes.STEER] as string | undefined) ?? '',
-          steerId: part.steerId ?? 'replay',
-          fileDocs: partDocs,
-        });
-        message.content = (message.content as SteerPart[]).map((candidate) =>
-          candidate === part ? { ...candidate, media: content } : candidate,
-        );
-        return {
-          index,
-          media: content,
-          steerText: (part[ContentTypes.STEER] as string | undefined) ?? '',
-        };
-      } catch (error) {
-        logger.warn(
-          `[stampSteerPartMedia] Failed to re-encode steer media (steer=${part.steerId}); replaying text only`,
-          error,
-        );
-        return null;
-      }
+      const { content } = await encodeSteerContent({
+        client,
+        text: (part[ContentTypes.STEER] as string | undefined) ?? '',
+        steerId: part.steerId ?? 'replay',
+        fileDocs: partDocs,
+      });
+      message.content = (message.content as SteerPart[]).map((candidate) =>
+        candidate === part ? { ...candidate, media: content } : candidate,
+      );
+      return {
+        index,
+        media: content,
+        steerText: (part[ContentTypes.STEER] as string | undefined) ?? '',
+      };
     }),
   );
   return stamped.filter((entry): entry is StampedSteerMedia => entry != null);

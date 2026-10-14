@@ -2242,7 +2242,10 @@ export function validateVisionModel({
     return false;
   }
 
-  return visionModels.concat(additionalModels).some((visionModel) => model.includes(visionModel));
+  return (
+    /(?:^|[/:])gemini-?4(?=$|[._-])/i.test(model) ||
+    visionModels.concat(additionalModels).some((visionModel) => model.includes(visionModel))
+  );
 }
 
 export const imageGenTools = new Set([

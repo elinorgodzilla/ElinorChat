@@ -14,6 +14,7 @@ type GoogleThinkingConfig = {
 };
 
 const GEMINI_3_5_FLASH = 'gemini-3.5-flash';
+const gemini4ModelRegex = /^(?:models\/)?gemini-?4(?:[.-]|$)/i;
 const GEMINI_3_5_FLASH_DEFAULT_THINKING_LEVEL: GoogleThinkingLevel = 'MEDIUM';
 const gemini35FlashLegacyParams = [
   'temperature',
@@ -129,6 +130,43 @@ function normalizeGoogleThinkingLevel(value: unknown): GoogleThinkingLevel | und
     return undefined;
   }
   return normalized;
+}
+
+function applyGemini4ThinkingOverrides(
+  config: GoogleClientOptions | VertexAIClientOptions,
+  provider: Providers,
+  thinking: boolean,
+  dropParams?: string[],
+) {
+  const configWithThinking = config as { thinkingConfig?: GoogleThinkingConfig };
+  const current = configWithThinking.thinkingConfig;
+  delete (config as VertexAIClientOptions).thinkingBudget;
+  if (!thinking || !current || dropParams?.includes('thinkingConfig')) {
+    delete configWithThinking.thinkingConfig;
+    delete (config as VertexAIClientOptions).includeThoughts;
+    return;
+  }
+
+  const qualitativeConfig: GoogleThinkingConfig = {};
+  if (typeof current.includeThoughts === 'boolean' && !dropParams?.includes('includeThoughts')) {
+    qualitativeConfig.includeThoughts = current.includeThoughts;
+  }
+  const level = normalizeGoogleThinkingLevel(current.thinkingLevel);
+  if (level && !dropParams?.includes('thinkingLevel')) {
+    qualitativeConfig.thinkingLevel = level;
+  }
+  if (Object.keys(qualitativeConfig).length > 0) {
+    configWithThinking.thinkingConfig = qualitativeConfig;
+  } else {
+    delete configWithThinking.thinkingConfig;
+  }
+  if (provider === Providers.VERTEXAI) {
+    if (qualitativeConfig.includeThoughts === undefined) {
+      delete (config as VertexAIClientOptions).includeThoughts;
+      return;
+    }
+    (config as VertexAIClientOptions).includeThoughts = qualitativeConfig.includeThoughts;
+  }
 }
 
 function isGemini35Flash(model: string) {
@@ -455,7 +493,15 @@ export function getGoogleConfig(
    * `@librechat/agents/langchain/google-common`'s `formatGenerationConfig` reads it separately
    * from `thinkingConfig` — they serve different purposes in the request pipeline.
    */
-  const supportsThinkingLevel = /gemini-([3-9]|\d{2,})|gemma-([4-9]|\d{2,})/i.test(modelName);
+  const overriddenModel = options.addParams?.model;
+  const thinkingModel =
+    typeof overriddenModel === 'string' &&
+    (gemini4ModelRegex.test(overriddenModel) || gemini4ModelRegex.test(modelName))
+      ? overriddenModel
+      : modelName;
+  const isGemini4 = gemini4ModelRegex.test(thinkingModel);
+  const supportsThinkingLevel =
+    isGemini4 || /gemini-([3-9]|\d{2,})|gemma-([4-9]|\d{2,})/i.test(thinkingModel);
 
   if (supportsThinkingLevel && thinking) {
     const thinkingConfig: GoogleThinkingConfig = {
@@ -550,7 +596,7 @@ export function getGoogleConfig(
         continue;
       }
 
-      if (knownGoogleParams.has(key)) {
+      if (knownGoogleParams.has(key) || (isGemini4 && key === 'thinkingConfig' && thinking)) {
         /** Route known Google params to llmConfig only if undefined */
         applyDefaultParams(llmConfig as Record<string, unknown>, { [key]: value });
         if (key === 'endpoint') {
@@ -580,7 +626,7 @@ export function getGoogleConfig(
         continue;
       }
 
-      if (knownGoogleParams.has(key)) {
+      if (knownGoogleParams.has(key) || (isGemini4 && key === 'thinkingConfig' && thinking)) {
         /** Route known Google params to llmConfig */
         (llmConfig as Record<string, unknown>)[key] = value;
         if (key === 'endpoint') {
@@ -613,6 +659,10 @@ export function getGoogleConfig(
         delete (llmConfig as Record<string, unknown>)[param];
       }
     });
+  }
+
+  if (isGemini4) {
+    applyGemini4ThinkingOverrides(llmConfig, provider, thinking, options.dropParams);
   }
 
   /**

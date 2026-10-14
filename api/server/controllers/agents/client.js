@@ -383,7 +383,7 @@ class AgentClient extends BaseClient {
    * @returns {Promise<Array<Partial<MongoFile>>>}
    */
   async addImageURLs(message, attachments) {
-    const { files, image_urls } = await encodeAndFormat(
+    const { files, image_urls, fileContext } = await encodeAndFormat(
       this.options.req,
       attachments,
       {
@@ -393,6 +393,9 @@ class AgentClient extends BaseClient {
       VisionModes.agents,
     );
     message.image_urls = image_urls.length ? image_urls : undefined;
+    if (fileContext) {
+      message.fileContext = [message.fileContext, fileContext].filter(Boolean).join('\n');
+    }
     return files;
   }
 

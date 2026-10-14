@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const { readLocalImage } = require('@librechat/api');
 const { resizeImageBuffer } = require('../images/resize');
 const { updateUser, updateFile } = require('~/models');
 
@@ -87,22 +88,18 @@ function encodeImage(imagePath) {
  * for image payload handling: tuple order of [filepath, base64].
  * @param {Object} req - The request object.
  * @param {MongoFile} file - The file object.
- * @returns {Promise<[MongoFile, string]>} - A promise that resolves to an array of results from updateFile and encodeImage.
+ * @returns {Promise<[MongoFile, string | null, string?]>}
  */
 async function prepareImagesLocal(req, file) {
   const appConfig = req.config;
-  const { publicPath, imageOutput } = appConfig.paths;
-  const userPath = path.join(imageOutput, req.user.id);
-
-  if (!fs.existsSync(userPath)) {
-    fs.mkdirSync(userPath, { recursive: true });
-  }
+  const { publicPath } = appConfig.paths;
   const filepath = path.join(publicPath, file.filepath);
-
-  const promises = [];
-  promises.push(updateFile({ file_id: file.file_id }));
-  promises.push(encodeImage(filepath));
-  return await Promise.all(promises);
+  const { base64, fileContext } = await readLocalImage(filepath, file);
+  if (base64 === null) {
+    return [file, null, fileContext];
+  }
+  const updatedFile = await updateFile({ file_id: file.file_id });
+  return [updatedFile, base64];
 }
 
 /**

@@ -2,6 +2,26 @@ import { ContentTypes } from 'librechat-data-provider';
 import { prependFileContext, prependQuotes, type FormattedMessageWithContent } from './client';
 
 describe('prependFileContext', () => {
+  it.each([true, false])('does not mutate shared frozen content (text=%s)', (withText) => {
+    const image = Object.freeze({ type: ContentTypes.IMAGE_URL, image_url: { url: 'image.png' } });
+    const text = Object.freeze({ type: ContentTypes.TEXT, text: 'Original question' });
+    const content = withText ? [image, text] : [image];
+    Object.freeze(content);
+    const history = { content };
+    const memory = { content };
+    const prompt = { content };
+
+    prependFileContext(prompt, '[Attachment unavailable: photo.png]');
+
+    expect(prompt.content).not.toBe(content);
+    expect(history.content).toBe(content);
+    expect(memory.content).toBe(content);
+    expect(text.text).toBe('Original question');
+    expect(JSON.stringify(history)).not.toContain('unavailable');
+    expect(JSON.stringify(memory)).not.toContain('unavailable');
+    expect(JSON.stringify(prompt)).toContain('unavailable');
+  });
+
   it('prepends file context to string content', () => {
     const message: FormattedMessageWithContent = { content: 'Answer this question.' };
 

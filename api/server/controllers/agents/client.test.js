@@ -35,6 +35,8 @@ jest.mock('~/server/services/MCP', () => ({
 }));
 
 jest.mock('~/models', () => ({
+  getFiles: jest.fn(),
+  updateFile: jest.fn(),
   getAgent: jest.fn(),
   getRoleByName: jest.fn(),
   getFormattedMemories: jest.fn(),
@@ -1627,6 +1629,85 @@ describe('AgentClient - titleConvo', () => {
       client.shouldSummarize = false;
       client.maxContextTokens = 4096;
       client.useMemory = jest.fn().mockResolvedValue(undefined);
+    });
+
+    it('keeps the current turn usable when its local image is missing', async () => {
+      const fs = require('fs');
+      const file = {
+        ...makeUploadedFile('lost-current-image', 'current.png', 'image/png'),
+        width: 1,
+        height: 1,
+      };
+      const message = {
+        messageId: 'msg-current',
+        parentMessageId: null,
+        sender: 'User',
+        text: 'Use this photo.',
+        isCreatedByUser: true,
+      };
+      mockReq.config.paths = { publicPath: '/app/client/public' };
+      client.options.attachments = [file];
+      const read = jest
+        .spyOn(fs.promises, 'readFile')
+        .mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+      try {
+        const result = await client.buildMessages([message], message.messageId, {});
+        expect(result.prompt[0].content).toContain('Attachment unavailable: current.png');
+        expect(message.text).toBe('Use this photo.');
+        expect(client.memoryPayload[0].content).toBe(message.text);
+        expect(client.options.attachments[0]).toEqual(
+          expect.objectContaining({ file_id: file.file_id, filepath: file.filepath }),
+        );
+      } finally {
+        read.mockRestore();
+      }
+    });
+
+    it('replays a missing local image as transient context without changing saved content', async () => {
+      const fs = require('fs');
+      const db = require('~/models');
+      const file = {
+        ...makeUploadedFile('lost-image', 'photo.png', 'image/png'),
+        width: 1,
+        height: 1,
+      };
+      const textPart = Object.freeze({ type: ContentTypes.TEXT, text: 'What is in this photo?' });
+      const content = [textPart];
+      Object.freeze(content);
+      const message = {
+        messageId: 'msg-lost',
+        parentMessageId: null,
+        sender: 'User',
+        text: textPart.text,
+        content,
+        files: [{ ...file }],
+        isCreatedByUser: true,
+      };
+      mockReq.config.paths = { publicPath: '/app/client/public' };
+      client.options.resendFiles = true;
+      db.getFiles.mockResolvedValueOnce([file]);
+      const read = jest
+        .spyOn(fs.promises, 'readFile')
+        .mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+      require('@librechat/api').countFormattedMessageTokens.mockImplementation(({ content }) =>
+        JSON.stringify(content).includes('Attachment unavailable') ? 200 : 20,
+      );
+      try {
+        const history = await client.addPreviousAttachments([message]);
+        const result = await client.buildMessages(history, message.messageId, {});
+
+        expect(JSON.stringify(result.prompt)).toContain('Attachment unavailable: photo.png');
+        expect(message.text).toBe(textPart.text);
+        expect(message.content).toBe(content);
+        expect(JSON.stringify(content)).not.toContain('unavailable');
+        expect(JSON.stringify(client.memoryPayload)).not.toContain('unavailable');
+        expect(result.tokenCountMap[message.messageId]).toBe(20);
+        expect(result.promptTokens).toBe(200);
+        expect(message.files[0]).toEqual(expect.objectContaining({ file_id: 'lost-image' }));
+        expect(db.updateFile).not.toHaveBeenCalled();
+      } finally {
+        read.mockRestore();
+      }
     });
 
     it.each([
