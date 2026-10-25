@@ -236,6 +236,8 @@ for (const disableStreaming of [false, true]) {
       assert.equal(wireReq.contents[wireReq.contents.length - 1].role, 'user');
       // Schema must lock opening to enum [prefillText]
       assert.equal(wireReq.generationConfig.responseMimeType, 'application/json');
+      assert.equal(wireReq.generationConfig.thinkingConfig.thinkingLevel, 'LOW');
+      assert.equal(wireReq.generationConfig.thinkingConfig.includeThoughts, false);
       assert.deepEqual(
         wireReq.generationConfig.responseSchema.properties.opening.enum,
         [prefillText],

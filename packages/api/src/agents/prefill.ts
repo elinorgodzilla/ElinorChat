@@ -179,13 +179,14 @@ export function buildPrefillSchemaObject(
     type: 'string',
     ...(kind === 'google' ? { format: 'enum' } : {}),
     enum: [enumAnchor],
-    description: 'Initial text segment.',
+    description:
+      'Verbatim opening excerpt of the fictional character dialogue or creative story manuscript.',
   };
 
   const continuationProperty: Record<string, unknown> = {
     type: 'string',
     description:
-      'Direct grammatical continuation completing the initial text segment in the same voice, tense, and context.',
+      'Seamless in-character prose or dialogue continuation that immediately follows the opening excerpt in the exact same fictional voice, slang, tone, and sentence flow without breaking character or adding out-of-character commentary.',
   };
 
   if (kind === 'google') {
@@ -796,10 +797,11 @@ export function extractPrefillContext({
 
 function applyMinimalGoogleThinkingForPrefill(clientOptions: Record<string, unknown>): void {
   const model = String(clientOptions.model ?? clientOptions.modelName ?? '').toLowerCase();
-  if (/gemini-?[34]/i.test(model)) {
+  if (/gemini-?[34]|gemma-?4/i.test(model)) {
+    const isFlash = model.includes('flash');
     clientOptions.thinkingConfig = {
       includeThoughts: false,
-      thinkingLevel: 'MINIMAL',
+      thinkingLevel: isFlash ? 'MINIMAL' : 'LOW',
     };
   } else if (/gemini-?2\.5/i.test(model)) {
     clientOptions.thinkingConfig = {
