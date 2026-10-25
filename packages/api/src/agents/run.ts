@@ -57,6 +57,8 @@ import { getAgentCheckpointer } from '~/agents/checkpointer';
 import { getOpenAIConfig } from '~/endpoints/openai/config';
 import { buildHITLRunWiring } from '~/agents/hitl/runtime';
 import { resolveSubagentMaxTurns } from '~/agents/config';
+import { withGoogleStreamHandler } from '~/agents/google';
+import { applyPrefillToRun } from '~/agents/prefill';
 import { buildLangfuseConfig } from '~/langfuse/config';
 import { resolveConfigHeaders } from '~/utils/headers';
 import { applyTestRunHook } from '~/agents/testHook';
@@ -1461,11 +1463,20 @@ export async function createRun({
    * runtime) — excess-property checks only apply to fresh literals. Inline
    * the field at the call site once the dependency is bumped.
    */
+  const effectiveCustomHandlers = applyPrefillToRun({
+    agentInputs,
+    messages,
+    indexTokenCountMap,
+    requestBody,
+    customHandlers: withGoogleStreamHandler(agentInputs, customHandlers),
+    agentEndpoint: agents[0]?.endpoint ?? undefined,
+  });
+
   const runConfig = {
     runId,
     graphConfig,
     tokenCounter,
-    customHandlers,
+    customHandlers: effectiveCustomHandlers,
     initialSessions,
     calibrationRatio,
     indexTokenCountMap,

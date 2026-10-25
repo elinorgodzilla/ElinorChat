@@ -377,6 +377,8 @@ export type TOptions = {
   overrideQuotes?: string[];
   /** Added conversation for multi-convo feature - sent to server as part of submission payload */
   addedConvo?: t.TConversation;
+  /** Optional opening text to prefill the assistant response with. */
+  responsePrefill?: string;
 };
 
 export type TAskFunction = (props: TAskProps, options?: TOptions) => false | void;

@@ -139,6 +139,8 @@ export type TPayload = Partial<TMessage> &
     manualSkills?: string[];
     /** Browser IANA timezone (e.g. `America/New_York`) used to resolve local-time prompt variables server-side. */
     timezone?: string;
+    /** Optional opening text to prefill the assistant response with. */
+    responsePrefill?: string;
   };
 
 export type TEditedContent =
@@ -172,6 +174,8 @@ export type TSubmission = {
   addedConvo?: TConversation;
   /** Skills the user invoked via the `$` popover for this submission. */
   manualSkills?: string[];
+  /** Optional opening text to prefill the assistant response with. */
+  responsePrefill?: string;
 };
 
 export type EventSubmission = Omit<TSubmission, 'initialResponse'> & { initialResponse: TMessage };

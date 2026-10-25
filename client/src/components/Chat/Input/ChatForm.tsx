@@ -48,6 +48,7 @@ import SendButton from './SendButton';
 import EditBadges from './EditBadges';
 import BadgeRow from './BadgeRow';
 import Mention from './Mention';
+import { PrefillToggleButton, PrefillInputDrawer } from './PrefillInput';
 import store from '~/store';
 
 interface ChatFormProps {
@@ -535,6 +536,15 @@ const ChatForm = memo(function ChatForm({
                   </div>
                 </div>
               )}
+              {endpoint && !isAssistantsEndpoint(endpoint) && (
+                <PrefillInputDrawer
+                  conversationId={conversationId}
+                  disabled={disableInputs || isNotAppendable}
+                  isRTL={isRTL}
+                  mainTextAreaRef={textAreaRef}
+                  submitButtonRef={submitButtonRef}
+                />
+              )}
               <div
                 className={cn(
                   '@container items-between flex gap-2 pb-2',
@@ -566,6 +576,12 @@ const ChatForm = memo(function ChatForm({
                   }
                 />
                 <div className="mx-auto flex" />
+                {endpoint && !isAssistantsEndpoint(endpoint) && (
+                  <PrefillToggleButton
+                    conversationId={conversationId}
+                    disabled={disableInputs || isNotAppendable || isSubmitting}
+                  />
+                )}
                 <TokenUsage index={index} conversation={conversation} isSubmitting={isSubmitting} />
                 {SpeechToText && (
                   <AudioRecorder

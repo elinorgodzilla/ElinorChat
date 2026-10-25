@@ -1551,6 +1551,16 @@ class AgentClient extends BaseClient {
             messageId: this.responseMessageId,
             conversationId: this.conversationId,
             parentMessageId: this.parentMessageId,
+            ...(typeof this.options.req?.body?.responsePrefill === 'string' &&
+            this.options.req.body.responsePrefill.length > 0
+              ? { responsePrefill: this.options.req.body.responsePrefill }
+              : {}),
+            ...(this.options.req?.body?.editedContent != null
+              ? { editedContent: this.options.req.body.editedContent }
+              : {}),
+            ...(this.options.req?.body?.isContinued === true
+              ? { isContinued: true }
+              : {}),
           },
           user: createSafeUser(this.options.req.user),
         },

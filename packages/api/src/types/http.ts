@@ -18,6 +18,12 @@ export type RequestBody = {
   endpointOption?: Partial<TEndpointOption>;
   /** Browser IANA timezone used to resolve local-time prompt variables (e.g. `{{current_datetime}}`). */
   timezone?: string;
+  /** Optional assistant opening prefill text supplied from the composer. */
+  responsePrefill?: string;
+  /** Edited content part descriptor when continuing from an edited assistant message. */
+  editedContent?: unknown;
+  /** Whether this request continues an existing assistant message. */
+  isContinued?: boolean;
 };
 
 export type ServerRequest = Request<unknown, unknown, RequestBody> & {

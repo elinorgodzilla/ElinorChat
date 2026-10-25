@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useForm } from 'react-hook-form';
 import { TextareaAutosize, TooltipAnchor } from '@librechat/client';
+import { ContentTypes } from 'librechat-data-provider';
 import { useUpdateMessageMutation } from 'librechat-data-provider/react-query';
 import type { TEditProps } from '~/common';
 import { useMessagesOperations, useMessagesConversation } from '~/Providers';
@@ -84,6 +85,11 @@ const EditMessage = ({
         { ...parentMessage },
         {
           editedText: data.text,
+          editedContent: {
+            index: 0,
+            type: ContentTypes.TEXT as const,
+            [ContentTypes.TEXT]: data.text,
+          },
           editedMessageId: messageId,
           isRegenerate: true,
           isEdited: true,

@@ -528,7 +528,7 @@ const ResumableAgentController = async (req, res, next, initializeClient, addTit
           parentMessageId,
           abortController: job.abortController,
           overrideParentMessageId,
-          isEdited: !!editedContent,
+          isEdited: Boolean(editedContent || isContinued),
           userMCPAuthMap: result.userMCPAuthMap,
           responseMessageId: editedResponseMessageId,
           progressOptions: {
@@ -1160,7 +1160,7 @@ const _LegacyAgentController = async (req, res, next, initializeClient, addTitle
       parentMessageId,
       abortController: job.abortController,
       overrideParentMessageId,
-      isEdited: !!editedContent,
+      isEdited: Boolean(editedContent || isContinued),
       userMCPAuthMap: result.userMCPAuthMap,
       responseMessageId: editedResponseMessageId,
       progressOptions: {

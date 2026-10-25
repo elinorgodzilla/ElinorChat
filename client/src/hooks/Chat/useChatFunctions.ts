@@ -258,6 +258,20 @@ export default function useChatFunctions({
     [],
   );
 
+  const drainPendingPrefill = useRecoilCallback(
+    ({ snapshot, reset }) =>
+      (convoId: string): string => {
+        const loadable = snapshot.getLoadable(store.pendingPrefillByConvoId(convoId));
+        const prefill = loadable.state === 'hasValue' ? (loadable.contents as string) : '';
+        if (prefill.length > 0) {
+          reset(store.pendingPrefillByConvoId(convoId));
+        }
+        reset(store.showPrefillInputByConvoId(convoId));
+        return prefill;
+      },
+    [],
+  );
+
   const ask: TAskFunction = (
     {
       text,
@@ -279,6 +293,7 @@ export default function useChatFunctions({
       overrideManualSkills,
       overrideQuotes,
       addedConvo,
+      responsePrefill: overrideResponsePrefill,
     } = {},
   ) => {
     setShowStopButton(false);
@@ -361,6 +376,10 @@ export default function useChatFunctions({
       } else if (!isRegenerate && !isContinued && !isEdited) {
         quotes = drainPendingQuotes(conversationId ?? Constants.NEW_CONVO);
       }
+    }
+    let responsePrefill = overrideResponsePrefill;
+    if (responsePrefill == null && !isRegenerate && !isContinued && !isEdited) {
+      responsePrefill = drainPendingPrefill(conversationId ?? Constants.NEW_CONVO);
     }
     const isEditOrContinue = isEdited || isContinued;
 
@@ -581,7 +600,20 @@ export default function useChatFunctions({
           } else if (type === ContentTypes.TEXT && contentPart.type === ContentTypes.TEXT) {
             contentPart[ContentTypes.TEXT] = part[ContentTypes.TEXT];
           }
+          initialResponse.content = initialResponse.content.slice(0, index + 1);
         }
+      } else if (editedContent) {
+        initialResponse.content = [
+          editedContent.type === ContentTypes.THINK
+            ? {
+                type: ContentTypes.THINK,
+                [ContentTypes.THINK]: editedContent[ContentTypes.THINK],
+              }
+            : {
+                type: ContentTypes.TEXT,
+                [ContentTypes.TEXT]: editedContent[ContentTypes.TEXT],
+              },
+        ];
       } else if (addedConvo && conversation) {
         // Pre-populate placeholders for smooth UI - these will be overridden/extended
         // as SSE events arrive with actual content, preserving the agent-based agentId
@@ -635,6 +667,10 @@ export default function useChatFunctions({
       editedContent,
       addedConvo,
       manualSkills: manualSkills.length > 0 ? manualSkills : undefined,
+      responsePrefill:
+        typeof responsePrefill === 'string' && responsePrefill.length > 0
+          ? responsePrefill
+          : undefined,
     };
 
     if (isRegenerate) {

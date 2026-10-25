@@ -579,14 +579,28 @@ class BaseClient {
         // Handle editedContent for content parts
         if (editedContent && latestMessage.content && Array.isArray(latestMessage.content)) {
           const { index, text, type } = editedContent;
+          const nextValue =
+            type === ContentTypes.THINK
+              ? (text ?? editedContent[ContentTypes.THINK])
+              : (text ?? editedContent[ContentTypes.TEXT]);
           if (index >= 0 && index < latestMessage.content.length) {
             const contentPart = latestMessage.content[index];
             if (type === ContentTypes.THINK && contentPart.type === ContentTypes.THINK) {
-              contentPart[ContentTypes.THINK] = text;
+              contentPart[ContentTypes.THINK] = nextValue;
             } else if (type === ContentTypes.TEXT && contentPart.type === ContentTypes.TEXT) {
-              contentPart[ContentTypes.TEXT] = text;
+              contentPart[ContentTypes.TEXT] = nextValue;
             }
+            latestMessage.content = latestMessage.content.slice(0, index + 1);
           }
+        } else if (editedContent) {
+          const nextText = editedContent[ContentTypes.TEXT] ?? editedContent.text ?? '';
+          latestMessage.text = nextText;
+          latestMessage.content = [
+            {
+              type: ContentTypes.TEXT,
+              [ContentTypes.TEXT]: nextText,
+            },
+          ];
         }
       }
       this.continued = true;
@@ -1238,30 +1252,35 @@ class BaseClient {
 
     const lastIndex = existingContent.length - 1;
     const lastExisting = existingContent[lastIndex];
-    const firstNew = newCompletion[0];
+    const matchIndex = newCompletion.findIndex((part) => part?.type === editedType);
 
-    if (lastExisting?.type !== firstNew?.type || firstNew?.type !== editedType) {
+    if (lastExisting?.type !== editedType || matchIndex === -1) {
       return existingContent.concat(newCompletion);
     }
 
+    const matchedNew = newCompletion[matchIndex];
     const mergedContent = [...existingContent];
     if (editedType === ContentTypes.TEXT) {
       mergedContent[lastIndex] = {
         ...mergedContent[lastIndex],
         [ContentTypes.TEXT]:
-          (mergedContent[lastIndex][ContentTypes.TEXT] || '') + (firstNew[ContentTypes.TEXT] || ''),
+          (mergedContent[lastIndex][ContentTypes.TEXT] || '') +
+          (matchedNew[ContentTypes.TEXT] || ''),
       };
     } else {
       mergedContent[lastIndex] = {
         ...mergedContent[lastIndex],
         [ContentTypes.THINK]:
           (mergedContent[lastIndex][ContentTypes.THINK] || '') +
-          (firstNew[ContentTypes.THINK] || ''),
+          (matchedNew[ContentTypes.THINK] || ''),
       };
     }
 
-    // Add remaining completion items
-    return mergedContent.concat(newCompletion.slice(1));
+    // Add remaining completion items (excluding the merged item)
+    return mergedContent.concat(
+      newCompletion.slice(0, matchIndex),
+      newCompletion.slice(matchIndex + 1),
+    );
   }
 
   async sendPayload(payload, opts = {}) {

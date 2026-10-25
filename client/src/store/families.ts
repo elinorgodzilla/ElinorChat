@@ -307,6 +307,24 @@ const pendingQuotesByConvoId = atomFamily<string[], string>({
 });
 
 /**
+ * Per-conversation opening text to prefill the assistant response with on the
+ * next submission. Drained by `useChatFunctions.ask` onto `submission.responsePrefill`.
+ */
+const pendingPrefillByConvoId = atomFamily<string, string>({
+  key: 'pendingPrefillByConvoId',
+  default: '',
+});
+
+/**
+ * Whether the composer's inline "Prefill AI" drawer is currently expanded for
+ * a given conversation.
+ */
+const showPrefillInputByConvoId = atomFamily<boolean, string>({
+  key: 'showPrefillInputByConvoId',
+  default: false,
+});
+
+/**
  * A steer message submitted mid-run. Server truth: `sending` covers the POST
  * in flight, `pending` means the server queued it (awaiting a tool-batch
  * boundary), `failed` keeps the text recoverable after a rejected POST. The
@@ -590,6 +608,8 @@ export default {
   showSkillsPopoverFamily,
   pendingManualSkillsByConvoId,
   pendingQuotesByConvoId,
+  pendingPrefillByConvoId,
+  showPrefillInputByConvoId,
   pendingSteersByConvoId,
   queuedMessagesByConvoId,
   runEndByIndex,
