@@ -179,13 +179,13 @@ export function buildPrefillSchemaObject(
     type: 'string',
     ...(kind === 'google' ? { format: 'enum' } : {}),
     enum: [enumAnchor],
-    description: 'The exact opening text fragment already spoken by the assistant.',
+    description: 'Initial text segment.',
   };
 
   const continuationProperty: Record<string, unknown> = {
     type: 'string',
     description:
-      'The immediate, seamless word-for-word continuation picking up at the exact character where opening ends. Do not repeat the opening fragment and do not include any preamble, refusal, or commentary.',
+      'Direct grammatical continuation completing the initial text segment in the same voice, tense, and context.',
   };
 
   if (kind === 'google') {
@@ -621,12 +621,20 @@ export class PrefillChatModelStreamHandler extends GoogleChatModelStreamHandler 
   }
 }
 
-function appendPrefillPromptToMessages(messages: BaseMessage[], prefillText: string): void {
-  const promptBlock =
-    '\n\n[Mandatory Response Prefill — Your response has already begun with the exact text below. ' +
-    'Locked into the `opening` schema field, continue seamlessly in `continuation` from the exact character where it ends, ' +
-    'matching the voice, tone, and sentence flow with zero repetition or meta-commentary:]\n' +
-    prefillText;
+function appendLongDraftPrefixToMessages(messages: BaseMessage[], prefillText: string): void {
+  // Only needed when prefillText exceeds MAX_ENUM_ANCHOR_CHARS so the earlier
+  // paragraphs of a long story draft remain visible in context while the tail
+  // sentence is locked in the schema enum. Short prefills stay strictly inside
+  // the schema enum and never pollute the user message.
+  if (prefillText.length <= MAX_ENUM_ANCHOR_CHARS) {
+    if (messages.length === 0) {
+      messages.push(new HumanMessage('Continue.'));
+    }
+    return;
+  }
+
+  const earlierDraft = prefillText.slice(0, prefillText.length - MAX_ENUM_ANCHOR_CHARS);
+  const draftBlock = `\n\n${earlierDraft}`;
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -640,7 +648,7 @@ function appendPrefillPromptToMessages(messages: BaseMessage[], prefillText: str
 
     if (typeof msg.content === 'string') {
       messages[i] = new HumanMessage({
-        content: msg.content + promptBlock,
+        content: msg.content + draftBlock,
         name: msg.name,
         additional_kwargs: { ...msg.additional_kwargs },
       });
@@ -652,17 +660,23 @@ function appendPrefillPromptToMessages(messages: BaseMessage[], prefillText: str
       let appended = false;
       for (let j = clonedContent.length - 1; j >= 0; j--) {
         const part = clonedContent[j];
-        if (part != null && typeof part === 'object' && 'type' in part && part.type === 'text' && 'text' in part) {
+        if (
+          part != null &&
+          typeof part === 'object' &&
+          'type' in part &&
+          part.type === 'text' &&
+          'text' in part
+        ) {
           clonedContent[j] = {
             ...part,
-            text: `${part.text ?? ''}${promptBlock}`,
+            text: `${part.text ?? ''}${draftBlock}`,
           };
           appended = true;
           break;
         }
       }
       if (!appended) {
-        clonedContent.push({ type: 'text', text: promptBlock });
+        clonedContent.push({ type: 'text', text: draftBlock });
       }
       messages[i] = new HumanMessage({
         content: clonedContent,
@@ -673,7 +687,7 @@ function appendPrefillPromptToMessages(messages: BaseMessage[], prefillText: str
     }
   }
 
-  messages.push(new HumanMessage(promptBlock.trim()));
+  messages.push(new HumanMessage(earlierDraft));
 }
 
 type FetchFn = (
@@ -780,10 +794,22 @@ export function extractPrefillContext({
   return undefined;
 }
 
-const PREFILL_SYSTEM_DIRECTIVE =
-  'CRITICAL PREFILL CONTINUATION MODE: Your response has already started with the exact text in the `opening` field. ' +
-  'In the `continuation` field, write ONLY the immediate next characters/words that continue directly from the end of `opening` ' +
-  'in the exact same voice, tone, and sentence flow. Never apologize, refuse, hedge, repeat `opening`, or add meta-commentary.';
+function applyMinimalGoogleThinkingForPrefill(clientOptions: Record<string, unknown>): void {
+  const model = String(clientOptions.model ?? clientOptions.modelName ?? '').toLowerCase();
+  if (/gemini-?[34]/i.test(model)) {
+    clientOptions.thinkingConfig = {
+      includeThoughts: false,
+      thinkingLevel: 'MINIMAL',
+    };
+  } else if (/gemini-?2\.5/i.test(model)) {
+    clientOptions.thinkingConfig = {
+      includeThoughts: false,
+      thinkingBudget: 0,
+    };
+  } else {
+    delete clientOptions.thinkingConfig;
+  }
+}
 
 export function applyPrefillToRun({
   agentInputs,
@@ -834,21 +860,16 @@ export function applyPrefillToRun({
           delete indexTokenCountMap[poppedIndex];
         }
       }
-      appendPrefillPromptToMessages(messages, prefill.prefillText);
+      appendLongDraftPrefixToMessages(messages, prefill.prefillText);
     }
 
     primaryAgent.tools = [];
     primaryAgent.toolDefinitions = [];
     primaryAgent.toolRegistry = undefined;
-    primaryAgent.additional_instructions = [
-      primaryAgent.additional_instructions ?? '',
-      PREFILL_SYSTEM_DIRECTIVE,
-    ]
-      .filter(Boolean)
-      .join('\n\n');
 
     if (prefill.strategy === 'schema_google') {
       ensureGoogleResponseSchemaSupport();
+      applyMinimalGoogleThinkingForPrefill(clientOptions);
       const googleSchema = buildPrefillSchemaObject(prefill.enumAnchor, 'google');
       clientOptions.responseSchema = googleSchema;
       clientOptions.responseMimeType = 'application/json';
