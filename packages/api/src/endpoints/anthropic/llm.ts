@@ -200,7 +200,7 @@ function getLLMConfig(
     clientOptions: {},
     invocationKwargs: {
       metadata: {
-        user_id: mergedOptions.user,
+        user_id: undefined,
       },
     },
   };

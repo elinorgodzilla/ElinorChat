@@ -179,7 +179,6 @@ export async function initializeOpenAI({
   const modelOptions = {
     ...(model_parameters ?? {}),
     model: modelName,
-    user: req.user?.id,
   };
 
   const finalClientOptions: OpenAIConfigOptions = {

@@ -34,7 +34,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 64000,
           modelKwargs: {
             metadata: {
-              user_id: 'some_user_id',
+              user_id: undefined,
             },
             thinking: {
               type: 'enabled',
@@ -83,7 +83,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'user123',
+              user_id: undefined,
             },
             thinking: {
               type: 'enabled',
@@ -134,7 +134,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'user123',
+              user_id: undefined,
             },
             topK: 50,
             promptCache: true,
@@ -177,7 +177,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 4096,
           modelKwargs: {
             metadata: {
-              user_id: 'user456',
+              user_id: undefined,
             },
             promptCache: true,
           },
@@ -293,7 +293,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'userGPT',
+              user_id: undefined,
             },
           },
         },
@@ -382,7 +382,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: '',
+              user_id: undefined,
             },
           },
         },
@@ -423,7 +423,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'searchUser',
+              user_id: undefined,
             },
             promptCache: true,
           },
@@ -472,7 +472,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'testUser',
+              user_id: undefined,
             },
             topK: 40,
             promptCache: true,
@@ -522,7 +522,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'addUser',
+              user_id: undefined,
             },
             promptCache: true,
             customParam1: 'value1', // Unknown params added to modelKwargs
@@ -575,7 +575,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
           maxTokens: 8192,
           modelKwargs: {
             metadata: {
-              user_id: 'bothUser',
+              user_id: undefined,
             },
             promptCache: true,
             customParam: 'customValue',
@@ -695,7 +695,7 @@ describe('getOpenAIConfig - Anthropic Compatibility', () => {
       expect(result.llmConfig.maxRetries).toBe(3); // Known OpenAI param at top level
       expect(result.llmConfig.modelKwargs).toMatchObject({
         customParam: 'custom', // Unknown param in modelKwargs
-        metadata: { user_id: 'mixed-user' }, // From invocationKwargs
+        metadata: { user_id: undefined }, // From invocationKwargs
       });
     });
 

@@ -359,6 +359,7 @@ function createGeminiImageTool(fields = {}) {
       const geminiModel = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
       const config = {
         responseModalities: ['TEXT', 'IMAGE'],
+        store: false,
       };
 
       const supportsImageSize = !geminiModel.includes('gemini-2.5-flash-image');

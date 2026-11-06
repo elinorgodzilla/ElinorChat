@@ -300,6 +300,17 @@ function isOpenRouterClaude46Model(model: string): boolean {
   );
 }
 
+/**
+ * Anthropic Covered Models (Claude Fable 5/5.1, Claude Mythos 5/5.1) require
+ * 30-day safety retention and are rejected when ZDR is enforced on OpenRouter.
+ */
+export function isZdrIneligibleOpenRouterModel(model?: string | null): boolean {
+  if (typeof model !== 'string') {
+    return false;
+  }
+  return /\b(?:fable|mythos)\b/i.test(model);
+}
+
 function getOpenRouterAnthropicVerbosity(
   reasoningEffort?: string | null,
   model?: string | null,
@@ -879,6 +890,36 @@ export function getOpenAILLMConfig({
     modelKwargs[paramName] = llmConfig.maxTokens;
     delete llmConfig.maxTokens;
     hasModelKwargs = true;
+  }
+
+  if (
+    !useOpenRouter &&
+    endpoint === EModelEndpoint.openAI &&
+    isCanonicalOpenAIBaseURL(baseURL)
+  ) {
+    if (llmConfig.zdrEnabled === undefined && !dropParams?.includes('zdrEnabled')) {
+      llmConfig.zdrEnabled = true;
+    }
+    if (modelKwargs.store === undefined && !dropParams?.includes('store')) {
+      modelKwargs.store = false;
+      hasModelKwargs = true;
+    }
+  }
+
+  if (
+    useOpenRouter &&
+    isZdrIneligibleOpenRouterModel(llmConfig.model || modelOptions.model) &&
+    modelKwargs.provider != null &&
+    typeof modelKwargs.provider === 'object' &&
+    !Array.isArray(modelKwargs.provider)
+  ) {
+    const providerPrefs = { ...(modelKwargs.provider as Record<string, unknown>) };
+    delete providerPrefs.zdr;
+    if (Object.keys(providerPrefs).length > 0) {
+      modelKwargs.provider = providerPrefs;
+    } else {
+      delete modelKwargs.provider;
+    }
   }
 
   if (hasModelKwargs && Object.keys(modelKwargs).length > 0) {

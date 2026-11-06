@@ -8,7 +8,7 @@ describe('getGoogleConfig', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    jest.resetModules();
+    jest.resetModules?.();
     process.env = { ...originalEnv };
     delete process.env.GOOGLE_EXCLUDE_SAFETY_SETTINGS;
     delete process.env.GOOGLE_LOC;
@@ -1807,7 +1807,7 @@ describe('getSafetySettings', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    jest.resetModules();
+    jest.resetModules?.();
     process.env = { ...originalEnv };
     delete process.env.GOOGLE_EXCLUDE_SAFETY_SETTINGS;
     delete process.env.GOOGLE_SAFETY_SEXUALLY_EXPLICIT;
@@ -1872,6 +1872,16 @@ describe('knownGoogleParams', () => {
     expect(knownGoogleParams.has('apiKey')).toBe(true);
     expect(knownGoogleParams.has('endpoint')).toBe(true);
     expect(knownGoogleParams.has('safetySettings')).toBe(true);
+    expect(knownGoogleParams.has('store')).toBe(true);
+  });
+
+  it('defaults store to false for Google Gemini API key requests', () => {
+    const result = getGoogleConfig(
+      { [AuthKeys.GOOGLE_API_KEY]: 'test-api-key' },
+      { modelOptions: { model: 'gemini-4-argon' } },
+    );
+
+    expect((result.llmConfig as Record<string, unknown>).store).toBe(false);
   });
 
   it('should not contain non-Google parameters', () => {

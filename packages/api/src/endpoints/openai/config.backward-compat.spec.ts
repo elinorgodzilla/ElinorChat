@@ -33,6 +33,7 @@ describe('getOpenAIConfig - Backward Compatibility', () => {
           streaming: true,
           model: 'gpt-5-nano',
           useResponsesApi: true,
+          zdrEnabled: true,
           user: 'some-user',
           apiKey: 'sk-proj-somekey',
           reasoning: {
@@ -40,6 +41,7 @@ describe('getOpenAIConfig - Backward Compatibility', () => {
             summary: ReasoningSummary.detailed,
           },
           modelKwargs: {
+            store: false,
             text: {
               verbosity: Verbosity.high,
             },

@@ -74,7 +74,6 @@ export async function initializeAnthropic({
     reverseProxyUrl: ANTHROPIC_REVERSE_PROXY ?? undefined,
     modelOptions: {
       ...(model_parameters ?? {}),
-      user: req.user?.id,
     },
     ...(headers && { headers }),
     // Pass Vertex AI options if configured

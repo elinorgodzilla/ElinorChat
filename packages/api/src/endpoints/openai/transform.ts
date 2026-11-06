@@ -13,6 +13,7 @@ const googleExcludeParams = new Set([
   'thinkingConfig',
   'thinkingBudget',
   'includeThoughts',
+  'store',
 ]);
 
 /** Google-specific tool types that have no OpenAI-compatible equivalent */

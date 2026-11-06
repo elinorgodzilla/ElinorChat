@@ -316,7 +316,7 @@ export async function initializeCustom({
     ...customOptions,
   };
 
-  const modelOptions = { ...(model_parameters ?? {}), user: userId };
+  const modelOptions = { ...(model_parameters ?? {}) };
 
   let options: InitializeResultBase;
   if (endpointConfig.provider === EModelEndpoint.anthropic) {

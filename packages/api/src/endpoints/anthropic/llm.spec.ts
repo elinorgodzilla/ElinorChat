@@ -558,7 +558,7 @@ describe('getLLMConfig', () => {
           stream: true,
           invocationKwargs: {
             metadata: {
-              user_id: 'test-user-id-123',
+              user_id: undefined,
             },
           },
         });
@@ -587,7 +587,7 @@ describe('getLLMConfig', () => {
           maxTokens: 2048,
           invocationKwargs: {
             metadata: {
-              user_id: 'proxy-user-456',
+              user_id: undefined,
             },
           },
         });
@@ -725,7 +725,7 @@ describe('getLLMConfig', () => {
           anthropicApiUrl: 'https://anthropic-gateway.company.com/v1',
           invocationKwargs: {
             metadata: {
-              user_id: 'prod-user-enterprise-404',
+              user_id: undefined,
             },
           },
         });

@@ -1672,6 +1672,55 @@ describe('getOpenAILLMConfig', () => {
       expect(result.llmConfig.modelKwargs).not.toHaveProperty('verbosity');
     });
   });
+
+  describe('Zero Data Retention & No-Snitching Defaults', () => {
+    it('enforces zdrEnabled: true and store: false by default on OpenAI endpoint', () => {
+      const result = getOpenAILLMConfig({
+        apiKey: 'test-api-key',
+        streaming: true,
+        endpoint: EModelEndpoint.openAI,
+        modelOptions: {
+          model: 'gpt-5.6-sol',
+          reasoning_effort: ReasoningEffort.high,
+        },
+      });
+
+      expect(result.llmConfig.zdrEnabled).toBe(true);
+      expect(result.llmConfig.modelKwargs).toHaveProperty('store', false);
+    });
+
+    it('preserves provider.zdr: true for standard OpenRouter models', () => {
+      const result = getOpenAILLMConfig({
+        apiKey: 'test-api-key',
+        streaming: true,
+        useOpenRouter: true,
+        addParams: {
+          provider: { zdr: true },
+        },
+        modelOptions: {
+          model: 'anthropic/claude-opus-5.5',
+        },
+      });
+
+      expect(result.llmConfig.modelKwargs).toHaveProperty('provider', { zdr: true });
+    });
+
+    it('automatically strips provider.zdr for Fable and Mythos models on OpenRouter', () => {
+      const fableResult = getOpenAILLMConfig({
+        apiKey: 'test-api-key',
+        streaming: true,
+        useOpenRouter: true,
+        addParams: {
+          provider: { zdr: true },
+        },
+        modelOptions: {
+          model: 'anthropic/claude-fable-5',
+        },
+      });
+
+      expect(fableResult.llmConfig.modelKwargs?.provider).toBeUndefined();
+    });
+  });
 });
 
 describe('extractDefaultParams', () => {

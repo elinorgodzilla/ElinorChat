@@ -81,6 +81,7 @@ export const knownGoogleParams: Set<string> = new Set([
   'endpoint',
   'location',
   'authOptions',
+  'store',
 ]);
 
 /**
@@ -475,6 +476,9 @@ export function getGoogleConfig(
     (llmConfig as VertexAIClientOptions).location = location;
   } else if (apiKey && provider === Providers.GOOGLE) {
     llmConfig.apiKey = apiKey;
+    if ((llmConfig as Record<string, unknown>).store === undefined) {
+      (llmConfig as Record<string, unknown>).store = false;
+    }
   } else {
     throw new Error(
       `Invalid credentials provided. Please provide either a valid API key or service account credentials for Google Cloud.`,
